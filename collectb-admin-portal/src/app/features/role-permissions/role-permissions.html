@@ -1,0 +1,40 @@
+<div class="cb-page-header">
+  <h1>Platform Admin &middot; Role permissions</h1>
+  <p>Choose which permissions each role grants.</p>
+</div>
+
+<div class="cb-card">
+  <div class="cb-form-row">
+    <div class="cb-field">
+      <label for="rp-role">Role</label>
+      <p-select
+        id="rp-role"
+        [options]="roles()"
+        optionLabel="roleName"
+        optionValue="roleId"
+        [(ngModel)]="selectedRoleId"
+        (onChange)="onRoleChange()"
+        placeholder="Select role"
+        [loading]="loading()"
+      ></p-select>
+    </div>
+  </div>
+
+  @if (errorMessage()) {
+    <p-message severity="error">{{ errorMessage() }}</p-message>
+  }
+
+  @if (!selectedRoleId) {
+    <p class="cb-empty-state">Select a role to edit its permissions.</p>
+  } @else {
+    <ag-grid-angular
+      style="height: 420px; width: 100%;"
+      [rowData]="rows()"
+      [columnDefs]="columnDefs"
+      [defaultColDef]="defaultColDef"
+      [rowHeight]="44"
+      [enableCellTextSelection]="true"
+      [ensureDomOrder]="true"
+    ></ag-grid-angular>
+  }
+</div>

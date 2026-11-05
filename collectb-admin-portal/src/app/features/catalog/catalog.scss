@@ -1,0 +1,120 @@
+.catalog-section-header,
+.catalog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.catalog-section-header {
+  justify-content: space-between;
+  margin-bottom: 1rem;
+}
+
+.catalog-section-header h2,
+.catalog-form h3 {
+  margin: 0 0 0.35rem;
+}
+
+.catalog-section-header p,
+.catalog-note {
+  color: var(--text-color-secondary);
+  margin: 0.25rem 0 0.8rem;
+}
+
+.catalog-list {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.catalog-list-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+  padding: 0.85rem;
+  border: 1px solid var(--surface-border);
+  border-radius: 0.5rem;
+}
+
+.catalog-list-item-selected {
+  border-color: var(--primary-color);
+}
+
+.catalog-select {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.7rem;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.catalog-item-title {
+  font-weight: 600;
+}
+
+.catalog-form {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--surface-border);
+}
+
+.catalog-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 0.9rem;
+}
+
+.catalog-form label,
+.catalog-comment {
+  display: grid;
+  gap: 0.4rem;
+  color: var(--text-color-secondary);
+}
+
+.catalog-form input,
+.catalog-form select,
+.catalog-form textarea,
+.catalog-comment input {
+  width: 100%;
+}
+
+.catalog-wide {
+  grid-column: 1 / -1;
+}
+
+.catalog-template-form.ng-submitted input.ng-invalid {
+  border-color: var(--p-red-500, #ef4444);
+  outline: 1px solid var(--p-red-500, #ef4444);
+}
+
+.catalog-field-error {
+  color: var(--p-red-500, #ef4444);
+}
+
+.catalog-review-comment {
+  flex-basis: 100%;
+  color: var(--text-color-secondary);
+}
+
+.catalog-comment {
+  max-width: 700px;
+  margin: 1rem 0;
+}
+
+@media (max-width: 700px) {
+  .catalog-list-item {
+    align-items: flex-start;
+  }
+
+  .catalog-actions {
+    width: 100%;
+  }
+}

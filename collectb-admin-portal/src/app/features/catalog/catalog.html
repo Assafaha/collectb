@@ -1,0 +1,288 @@
+<a [routerLink]="['/brands', brandId]" class="cb-back-link">
+  <i class="pi pi-arrow-left"></i> Back to brand
+</a>
+
+@if (brand(); as b) {
+  <div class="cb-page-header">
+    <h1>{{ b.name }} catalog</h1>
+    <p>Manage collections and collectible templates for this brand.</p>
+    @if (b.licenseStatus !== 'ACTIVE') {
+      <p-message severity="warn">Catalog changes require an active brand license.</p-message>
+    }
+  </div>
+}
+
+@if (successMessage()) {
+  <p-message severity="success">{{ successMessage() }}</p-message>
+}
+@if (errorMessage()) {
+  <p-message severity="error">{{ errorMessage() }}</p-message>
+}
+@if (currentUser.me()?.catalogMfaRequired === false) {
+  <p-message severity="warn">
+    Development only: MFA is temporarily bypassed for Catalog approval, publishing, and retirement.
+    MFA is mandatory for Production. Enable MFA enforcement before deploying to Production.
+  </p-message>
+} @else if ((can('COLLECTION:APPROVE') || can('TEMPLATE:APPROVE')) && !hasStepUp()) {
+  <p-message severity="warn">
+    Review, publish, and retire actions require recent MFA step-up authentication. This account's
+    current authentication strength is {{ currentUser.me()?.authStrength }}.
+  </p-message>
+}
+
+<section class="cb-card">
+  <div class="catalog-section-header">
+    <div>
+      <h2>Collections</h2>
+      <p>Brand-owned releases and sets. New collections start as drafts.</p>
+    </div>
+    @if (can('COLLECTION:CREATE') && canEditBrand()) {
+      <p-button label="New collection" icon="pi pi-plus" (click)="startCollection()"></p-button>
+    }
+  </div>
+
+  @if (loading()) {
+    <p class="cb-empty-state">Loading collections…</p>
+  } @else if (collections().length === 0) {
+    <p class="cb-empty-state">No collections yet.</p>
+  } @else {
+    <div class="catalog-list">
+      @for (collection of collections(); track collection.collectionId) {
+        <article class="catalog-list-item" [class.catalog-list-item-selected]="selectedCollection()?.collectionId === collection.collectionId">
+          <button type="button" class="catalog-select" (click)="selectCollection(collection)">
+            <span class="catalog-item-title">{{ collection.name }}</span>
+            <span>{{ collection.collectionCode }}</span>
+            <span class="cb-badge cb-badge-neutral">{{ collection.releaseStatus }}</span>
+          </button>
+          <div class="catalog-actions">
+            @if (collection.releaseStatus === 'DRAFT' || collection.releaseStatus === 'CHANGES_REQUESTED') {
+              @if (can('COLLECTION:UPDATE') && canEditBrand()) {
+                <p-button label="Edit" severity="secondary" (click)="editCollection(collection)"></p-button>
+              }
+              @if (can('COLLECTION:SUBMIT_FOR_REVIEW') && canEditBrand()) {
+                <p-button label="Submit" (click)="collectionAction(collection, 'submit-for-review')"></p-button>
+              }
+              @if (collection.releaseStatus === 'DRAFT' && can('COLLECTION:DELETE')) {
+                <p-button label="Delete" severity="danger" (click)="deleteCollection(collection)"></p-button>
+              }
+            }
+            @if (collection.releaseStatus === 'READY_FOR_REVIEW' && can('COLLECTION:WITHDRAW_FROM_REVIEW')) {
+              <p-button label="Withdraw" severity="secondary" (click)="collectionAction(collection, 'withdraw-from-review')"></p-button>
+            }
+            @if (collection.releaseStatus === 'READY_FOR_REVIEW' && can('COLLECTION:APPROVE')) {
+              <p-button label="Approve" [disabled]="!canReview('COLLECTION:APPROVE')" (click)="reviewCollection(collection, 'APPROVE')"></p-button>
+              <p-button label="Request changes" severity="warn" [disabled]="!canReview('COLLECTION:APPROVE')" (click)="reviewCollection(collection, 'REQUEST_CHANGES')"></p-button>
+            }
+            @if (collection.releaseStatus === 'APPROVED' && can('COLLECTION:PUBLISH')) {
+              <p-button label="Publish" [disabled]="!canReview('COLLECTION:PUBLISH')" (click)="collectionAction(collection, 'publish')"></p-button>
+            }
+            @if (collection.releaseStatus === 'PUBLISHED' && can('COLLECTION:RETIRE')) {
+              <p-button label="Retire" severity="warn" [disabled]="!canReview('COLLECTION:RETIRE')" (click)="collectionAction(collection, 'retire')"></p-button>
+            }
+          </div>
+        </article>
+      }
+    </div>
+  }
+
+  @if (can('COLLECTION:APPROVE') && hasCollectionAwaitingReview()) {
+    <label class="catalog-comment">Reviewer comment (required when requesting changes)
+      <input pInputText name="collectionReviewComment" [(ngModel)]="reviewComment" />
+    </label>
+  }
+
+  @if (can('COLLECTION:CREATE') && canEditBrand()) {
+    <form class="catalog-form" (ngSubmit)="saveCollection()">
+      <h3>{{ editingCollectionId ? 'Edit collection' : 'Create collection' }}</h3>
+      <div class="catalog-form-grid">
+        <label>Code
+          <input pInputText name="collectionCode" [(ngModel)]="collectionForm.collectionCode" required maxlength="80" />
+        </label>
+        <label>Name
+          <input pInputText name="collectionName" [(ngModel)]="collectionForm.name" required maxlength="200" />
+        </label>
+        <label>Description
+          <input pInputText name="collectionDescription" [(ngModel)]="collectionForm.description" />
+        </label>
+        <label>Release starts
+          <input pInputText type="datetime-local" name="releaseStartAt" [(ngModel)]="collectionForm.releaseStartAt" />
+        </label>
+        <label>Release ends
+          <input pInputText type="datetime-local" name="releaseEndAt" [(ngModel)]="collectionForm.releaseEndAt" />
+        </label>
+      </div>
+      <div class="catalog-actions">
+        <p-button type="submit" [label]="editingCollectionId ? 'Save changes' : 'Create collection'" [disabled]="saving()"></p-button>
+        @if (editingCollectionId) {
+          <p-button type="button" label="Cancel" severity="secondary" (click)="startCollection()"></p-button>
+        }
+      </div>
+    </form>
+  }
+</section>
+
+@if (selectedCollection(); as collection) {
+  <section class="cb-card">
+    <div class="catalog-section-header">
+      <div>
+        <h2>Templates in {{ collection.name }}</h2>
+        <p>Templates define the collectible blueprint, metadata, edition size, and artwork reference.</p>
+      </div>
+      @if (can('TEMPLATE:CREATE') && canEditBrand()) {
+        <p-button label="New template" icon="pi pi-plus" (click)="startTemplate()"></p-button>
+      }
+    </div>
+
+    @if (templates().length === 0) {
+      <p class="cb-empty-state">No templates in this collection.</p>
+    } @else {
+      <div class="catalog-list">
+        @for (template of templates(); track template.templateId) {
+          <article class="catalog-list-item">
+            <div class="catalog-select">
+              <span class="catalog-item-title">{{ template.displayName }}</span>
+              <span>{{ template.templateCode }} · {{ template.rarity || 'Unclassified' }} · Edition {{ template.editionSize }}</span>
+              <span class="cb-badge cb-badge-neutral">{{ template.publishStatus }}</span>
+              @if (template.reviewComment) {
+                <span class="catalog-review-comment">Review: {{ template.reviewComment }}</span>
+              }
+            </div>
+            <div class="catalog-actions">
+              @if ((template.publishStatus === 'DRAFT' || template.publishStatus === 'CHANGES_REQUESTED') && can('TEMPLATE:UPDATE') && canEditBrand()) {
+                <p-button label="Edit" severity="secondary" (click)="editTemplate(template)"></p-button>
+              }
+              @if (can('TEMPLATE:CLONE') && canEditBrand()) {
+                <p-button label="Clone" severity="secondary" (click)="cloneTemplate(template)"></p-button>
+              }
+              @if ((template.publishStatus === 'DRAFT' || template.publishStatus === 'CHANGES_REQUESTED') && can('TEMPLATE:SUBMIT_FOR_REVIEW') && canEditBrand()) {
+                <p-button label="Submit" (click)="templateAction(template, 'submit-for-review')"></p-button>
+              }
+              @if (template.publishStatus === 'DRAFT' && can('TEMPLATE:DELETE')) {
+                <p-button label="Delete" severity="danger" (click)="deleteTemplate(template)"></p-button>
+              }
+              @if (template.publishStatus === 'READY_FOR_REVIEW' && can('TEMPLATE:WITHDRAW_FROM_REVIEW')) {
+                <p-button label="Withdraw" severity="secondary" (click)="templateAction(template, 'withdraw-from-review')"></p-button>
+              }
+              @if (template.publishStatus === 'READY_FOR_REVIEW' && can('TEMPLATE:APPROVE')) {
+                <p-button label="Approve" [disabled]="!canReview('TEMPLATE:APPROVE')" (click)="reviewTemplate(template, 'APPROVE')"></p-button>
+                <p-button label="Request changes" severity="warn" [disabled]="!canReview('TEMPLATE:APPROVE')" (click)="reviewTemplate(template, 'REQUEST_CHANGES')"></p-button>
+              }
+              @if (template.publishStatus === 'APPROVED' && can('TEMPLATE:PUBLISH')) {
+                <p-button label="Publish" [disabled]="!canReview('TEMPLATE:PUBLISH')" (click)="templateAction(template, 'publish')"></p-button>
+              }
+              @if (template.publishStatus === 'PUBLISHED' && can('TEMPLATE:RETIRE')) {
+                <p-button label="Retire" severity="warn" [disabled]="!canReview('TEMPLATE:RETIRE')" (click)="templateAction(template, 'retire')"></p-button>
+              }
+            </div>
+          </article>
+        }
+      </div>
+    }
+
+    @if (can('TEMPLATE:APPROVE') && hasTemplatesAwaitingReview()) {
+      <label class="catalog-comment">Reviewer comment (required when requesting changes)
+        <input pInputText name="reviewComment" [(ngModel)]="reviewComment" />
+      </label>
+    }
+
+    @if (can('TEMPLATE:CREATE') && canEditBrand()) {
+      <form class="catalog-form catalog-template-form" #templateNgForm="ngForm" (ngSubmit)="saveTemplate(templateNgForm)" novalidate>
+        <h3>{{ cloneSourceTemplateId ? 'Clone template' : editingTemplateId ? 'Edit template' : 'Create template' }}</h3>
+        <div class="catalog-form-grid">
+          <label>Code
+            <input pInputText name="templateCode" [(ngModel)]="templateForm.templateCode" #templateCode="ngModel" required pattern=".*\S.*" maxlength="80"
+              [attr.aria-invalid]="templateNgForm.submitted && templateCode.invalid" />
+            @if (templateNgForm.submitted && templateCode.invalid) {
+              <small class="catalog-field-error">Code is required and must not be blank.</small>
+            }
+          </label>
+          <label>Display name
+            <input pInputText name="displayName" [(ngModel)]="templateForm.displayName" #displayName="ngModel" required pattern=".*\S.*" maxlength="200"
+              [attr.aria-invalid]="templateNgForm.submitted && displayName.invalid" />
+            @if (templateNgForm.submitted && displayName.invalid) {
+              <small class="catalog-field-error">Display name is required and must not be blank.</small>
+            }
+          </label>
+          <label>Rarity
+            <input pInputText name="rarity" [(ngModel)]="templateForm.rarity" maxlength="50" />
+          </label>
+          <label>Edition size
+            <input pInputText type="number" name="editionSize" [(ngModel)]="templateForm.editionSize" #editionSize="ngModel" required min="1"
+              [attr.aria-invalid]="templateNgForm.submitted && editionSize.invalid" />
+            @if (templateNgForm.submitted && editionSize.invalid) {
+              <small class="catalog-field-error">Edition size is required and must be at least 1.</small>
+            }
+          </label>
+          <label>Metadata schema version
+            <input pInputText name="metadataSchemaVersion" [(ngModel)]="templateForm.metadataSchemaVersion" #metadataSchemaVersion="ngModel" required pattern=".*\S.*" maxlength="20"
+              [attr.aria-invalid]="templateNgForm.submitted && metadataSchemaVersion.invalid" />
+            @if (templateNgForm.submitted && metadataSchemaVersion.invalid) {
+              <small class="catalog-field-error">Metadata schema version is required and must not be blank.</small>
+            }
+          </label>
+          <label>Metadata URI (HTTPS or S3)
+            <input pInputText name="metadataUri" [(ngModel)]="templateForm.metadataUri" #metadataUri="ngModel" required pattern=".*\S.*"
+              [attr.aria-invalid]="templateNgForm.submitted && metadataUri.invalid" />
+            @if (templateNgForm.submitted && metadataUri.invalid) {
+              <small class="catalog-field-error">Metadata URI is required and must not be blank.</small>
+            }
+          </label>
+          <label>Metadata SHA-256/SHA-512 hash
+            <input pInputText name="metadataHash" [(ngModel)]="templateForm.metadataHash" />
+          </label>
+          <label>Artwork/media reference
+            <select name="mediaAssetId" [(ngModel)]="templateForm.mediaAssetId">
+              <option value="">No media asset</option>
+              @for (asset of mediaAssets(); track asset.mediaAssetId) {
+                <option [value]="asset.mediaAssetId">{{ asset.assetType }} · {{ asset.cdnUri || asset.storageUri }}</option>
+              }
+            </select>
+          </label>
+          <label class="catalog-wide">Traits (JSON object of string values)
+            <textarea name="traitsJson" [(ngModel)]="templateForm.traitsJson" rows="4"></textarea>
+          </label>
+        </div>
+        <div class="catalog-actions">
+          <p-button type="submit" [label]="cloneSourceTemplateId ? 'Create clone' : editingTemplateId ? 'Save changes' : 'Create template'" [disabled]="saving()"></p-button>
+          @if (editingTemplateId || cloneSourceTemplateId) {
+            <p-button type="button" label="Cancel" severity="secondary" (click)="startTemplate()"></p-button>
+          }
+        </div>
+      </form>
+    }
+
+    @if (can('TEMPLATE:APPROVE') && !hasStepUp()) {
+      <p class="catalog-note">Approval and publishing are disabled until this session has recent MFA step-up authentication.</p>
+    }
+  </section>
+}
+
+@if (can('MEDIA_ASSET:UPLOAD') && canEditBrand()) {
+  <section class="cb-card">
+    <h2>Register artwork/media reference</h2>
+    <p class="catalog-note">Register metadata for an asset already stored in S3 or at an HTTPS URL. This does not upload files; direct S3/CloudFront upload integration is not configured yet.</p>
+    <form class="catalog-form" (ngSubmit)="registerMedia()">
+      <div class="catalog-form-grid">
+        <label>Asset type
+          <input pInputText name="assetType" [(ngModel)]="mediaForm.assetType" required maxlength="30" />
+        </label>
+        <label>Storage URI
+          <input pInputText name="storageUri" [(ngModel)]="mediaForm.storageUri" required />
+        </label>
+        <label>CDN URI
+          <input pInputText name="cdnUri" [(ngModel)]="mediaForm.cdnUri" />
+        </label>
+        <label>Content type
+          <input pInputText name="contentType" [(ngModel)]="mediaForm.contentType" placeholder="image/png" />
+        </label>
+        <label>SHA-256/SHA-512 checksum
+          <input pInputText name="checksum" [(ngModel)]="mediaForm.checksum" required />
+        </label>
+        <label>File size (bytes)
+          <input pInputText type="number" name="fileSizeBytes" [(ngModel)]="mediaForm.fileSizeBytes" min="1" />
+        </label>
+      </div>
+      <p-button type="submit" label="Register media reference"></p-button>
+    </form>
+  </section>
+}

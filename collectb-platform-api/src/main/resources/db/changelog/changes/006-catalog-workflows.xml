@@ -1,0 +1,223 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+	xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+		http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.24.xsd">
+
+	<changeSet id="006-01-catalog-review-audit-fields" author="copilot">
+		<addColumn tableName="collection">
+			<column name="updated_by_user_id" type="UUID"/>
+			<column name="reviewed_by_user_id" type="UUID"/>
+			<column name="reviewed_at" type="TIMESTAMPTZ"/>
+			<column name="review_comment" type="TEXT"/>
+		</addColumn>
+		<addForeignKeyConstraint baseTableName="collection" baseColumnNames="updated_by_user_id"
+			constraintName="fk_collection_updated_by_user" referencedTableName="platform_user"
+			referencedColumnNames="user_id" onDelete="RESTRICT"/>
+		<addForeignKeyConstraint baseTableName="collection" baseColumnNames="reviewed_by_user_id"
+			constraintName="fk_collection_reviewed_by_user" referencedTableName="platform_user"
+			referencedColumnNames="user_id" onDelete="RESTRICT"/>
+
+		<addColumn tableName="collectible_template">
+			<column name="traits" type="JSONB"/>
+			<column name="updated_by_user_id" type="UUID"/>
+			<column name="reviewed_by_user_id" type="UUID"/>
+			<column name="reviewed_at" type="TIMESTAMPTZ"/>
+			<column name="review_comment" type="TEXT"/>
+		</addColumn>
+		<addForeignKeyConstraint baseTableName="collectible_template" baseColumnNames="updated_by_user_id"
+			constraintName="fk_template_updated_by_user" referencedTableName="platform_user"
+			referencedColumnNames="user_id" onDelete="RESTRICT"/>
+		<addForeignKeyConstraint baseTableName="collectible_template" baseColumnNames="reviewed_by_user_id"
+			constraintName="fk_template_reviewed_by_user" referencedTableName="platform_user"
+			referencedColumnNames="user_id" onDelete="RESTRICT"/>
+
+		<!-- Media references are brand-owned; old unscoped rows remain nullable and are not
+		     exposed by the brand-scoped Catalog API. This migration does not upload files. -->
+		<addColumn tableName="media_asset">
+			<column name="brand_id" type="UUID"/>
+			<column name="created_by_user_id" type="UUID"/>
+		</addColumn>
+		<addForeignKeyConstraint baseTableName="media_asset" baseColumnNames="brand_id"
+			constraintName="fk_media_asset_brand" referencedTableName="brand"
+			referencedColumnNames="brand_id" onDelete="RESTRICT"/>
+		<addForeignKeyConstraint baseTableName="media_asset" baseColumnNames="created_by_user_id"
+			constraintName="fk_media_asset_created_by_user" referencedTableName="platform_user"
+			referencedColumnNames="user_id" onDelete="RESTRICT"/>
+		<createIndex tableName="media_asset" indexName="ix_media_asset_brand_id">
+			<column name="brand_id"/>
+		</createIndex>
+
+		<sql>
+			ALTER TABLE collection
+				ADD CONSTRAINT ck_collection_release_status
+				CHECK (release_status IN ('DRAFT', 'READY_FOR_REVIEW', 'CHANGES_REQUESTED',
+					'APPROVED', 'PUBLISHED', 'RETIRED'));
+			ALTER TABLE collectible_template
+				ADD CONSTRAINT ck_template_publish_status
+				CHECK (publish_status IN ('DRAFT', 'READY_FOR_REVIEW', 'CHANGES_REQUESTED',
+					'APPROVED', 'PUBLISHED', 'RETIRED'));
+			ALTER TABLE collectible_template
+				ADD CONSTRAINT ck_template_edition_size_positive CHECK (edition_size > 0);
+		</sql>
+	</changeSet>
+
+	<changeSet id="006-02-catalog-permissions" author="copilot">
+		<insert tableName="permission">
+			<column name="permission_key" value="COLLECTION:WITHDRAW_FROM_REVIEW"/>
+			<column name="resource_type" value="COLLECTION"/>
+			<column name="action" value="WITHDRAW_FROM_REVIEW"/>
+			<column name="description" value="Withdraw a collection from review before a decision."/>
+		</insert>
+		<insert tableName="permission">
+			<column name="permission_key" value="COLLECTION:APPROVE"/>
+			<column name="resource_type" value="COLLECTION"/>
+			<column name="action" value="APPROVE"/>
+			<column name="description" value="Approve a collection submitted for review."/>
+		</insert>
+		<insert tableName="permission">
+			<column name="permission_key" value="COLLECTION:PUBLISH"/>
+			<column name="resource_type" value="COLLECTION"/>
+			<column name="action" value="PUBLISH"/>
+			<column name="description" value="Publish an approved collection."/>
+		</insert>
+		<insert tableName="permission">
+			<column name="permission_key" value="COLLECTION:RETIRE"/>
+			<column name="resource_type" value="COLLECTION"/>
+			<column name="action" value="RETIRE"/>
+			<column name="description" value="Retire a published collection."/>
+		</insert>
+		<insert tableName="permission">
+			<column name="permission_key" value="TEMPLATE:DELETE"/>
+			<column name="resource_type" value="TEMPLATE"/>
+			<column name="action" value="DELETE"/>
+			<column name="description" value="Delete a draft template that has not produced ADCs."/>
+		</insert>
+		<insert tableName="permission">
+			<column name="permission_key" value="TEMPLATE:CLONE"/>
+			<column name="resource_type" value="TEMPLATE"/>
+			<column name="action" value="CLONE"/>
+			<column name="description" value="Clone a brand template into a new draft template."/>
+		</insert>
+		<insert tableName="permission">
+			<column name="permission_key" value="TEMPLATE:SUBMIT_FOR_REVIEW"/>
+			<column name="resource_type" value="TEMPLATE"/>
+			<column name="action" value="SUBMIT_FOR_REVIEW"/>
+			<column name="description" value="Submit a completed template for approval."/>
+		</insert>
+		<insert tableName="permission">
+			<column name="permission_key" value="TEMPLATE:WITHDRAW_FROM_REVIEW"/>
+			<column name="resource_type" value="TEMPLATE"/>
+			<column name="action" value="WITHDRAW_FROM_REVIEW"/>
+			<column name="description" value="Withdraw a template from review before a decision."/>
+		</insert>
+		<insert tableName="permission">
+			<column name="permission_key" value="TEMPLATE:PUBLISH"/>
+			<column name="resource_type" value="TEMPLATE"/>
+			<column name="action" value="PUBLISH"/>
+			<column name="description" value="Publish an approved template for issuance."/>
+		</insert>
+		<insert tableName="permission">
+			<column name="permission_key" value="TEMPLATE:RETIRE"/>
+			<column name="resource_type" value="TEMPLATE"/>
+			<column name="action" value="RETIRE"/>
+			<column name="description" value="Retire a published template."/>
+		</insert>
+		<insert tableName="permission">
+			<column name="permission_key" value="TEMPLATE:VIEW_VALIDATION_RESULTS"/>
+			<column name="resource_type" value="TEMPLATE"/>
+			<column name="action" value="VIEW_VALIDATION_RESULTS"/>
+			<column name="description" value="View template metadata, supply, and media validation results."/>
+		</insert>
+		<insert tableName="permission">
+			<column name="permission_key" value="MEDIA_ASSET:UPLOAD"/>
+			<column name="resource_type" value="MEDIA_ASSET"/>
+			<column name="action" value="UPLOAD"/>
+			<column name="description" value="Register an already uploaded brand media asset reference."/>
+		</insert>
+		<insert tableName="permission">
+			<column name="permission_key" value="MEDIA_ASSET:READ"/>
+			<column name="resource_type" value="MEDIA_ASSET"/>
+			<column name="action" value="READ"/>
+			<column name="description" value="View media references belonging to the assigned brand."/>
+		</insert>
+		<insert tableName="permission">
+			<column name="permission_key" value="MEDIA_ASSET:UPDATE_METADATA"/>
+			<column name="resource_type" value="MEDIA_ASSET"/>
+			<column name="action" value="UPDATE_METADATA"/>
+			<column name="description" value="Update metadata for a brand media reference."/>
+		</insert>
+		<insert tableName="permission">
+			<column name="permission_key" value="MEDIA_ASSET:REPLACE"/>
+			<column name="resource_type" value="MEDIA_ASSET"/>
+			<column name="action" value="REPLACE"/>
+			<column name="description" value="Replace media attached to a draft or changes-requested template."/>
+		</insert>
+		<insert tableName="permission">
+			<column name="permission_key" value="MEDIA_ASSET:DELETE"/>
+			<column name="resource_type" value="MEDIA_ASSET"/>
+			<column name="action" value="DELETE"/>
+			<column name="description" value="Delete an unused media reference."/>
+		</insert>
+		<insert tableName="permission">
+			<column name="permission_key" value="MEDIA_ASSET:ATTACH"/>
+			<column name="resource_type" value="MEDIA_ASSET"/>
+			<column name="action" value="ATTACH"/>
+			<column name="description" value="Attach a media reference to draft catalog content."/>
+		</insert>
+		<insert tableName="permission">
+			<column name="permission_key" value="MEDIA_ASSET:DETACH"/>
+			<column name="resource_type" value="MEDIA_ASSET"/>
+			<column name="action" value="DETACH"/>
+			<column name="description" value="Detach a media reference from draft catalog content."/>
+		</insert>
+		<insert tableName="permission">
+			<column name="permission_key" value="MEDIA_ASSET:VIEW_VALIDATION_RESULTS"/>
+			<column name="resource_type" value="MEDIA_ASSET"/>
+			<column name="action" value="VIEW_VALIDATION_RESULTS"/>
+			<column name="description" value="View media integrity and processing results."/>
+		</insert>
+
+		<sql>
+			INSERT INTO role_permission (role_id, permission_id)
+			SELECT r.role_id, p.permission_id
+			FROM role r
+			CROSS JOIN permission p
+			WHERE r.role_name = 'BRAND_EDITOR'
+			  AND p.permission_key IN (
+				'COLLECTION:WITHDRAW_FROM_REVIEW',
+				'TEMPLATE:DELETE', 'TEMPLATE:CLONE', 'TEMPLATE:SUBMIT_FOR_REVIEW',
+				'TEMPLATE:WITHDRAW_FROM_REVIEW', 'TEMPLATE:VIEW_VALIDATION_RESULTS',
+				'MEDIA_ASSET:UPLOAD', 'MEDIA_ASSET:READ', 'MEDIA_ASSET:UPDATE_METADATA',
+				'MEDIA_ASSET:REPLACE', 'MEDIA_ASSET:ATTACH', 'MEDIA_ASSET:DETACH',
+				'MEDIA_ASSET:VIEW_VALIDATION_RESULTS'
+			  )
+			  AND NOT EXISTS (
+				SELECT 1 FROM role_permission rp
+				WHERE rp.role_id = r.role_id AND rp.permission_id = p.permission_id
+			  );
+
+			INSERT INTO role_permission (role_id, permission_id)
+			SELECT r.role_id, p.permission_id
+			FROM role r
+			CROSS JOIN permission p
+			WHERE r.role_name = 'BRAND_ADMIN'
+			  AND p.permission_key IN (
+				'COLLECTION:WITHDRAW_FROM_REVIEW', 'COLLECTION:APPROVE',
+				'COLLECTION:PUBLISH', 'COLLECTION:RETIRE',
+				'TEMPLATE:DELETE', 'TEMPLATE:CLONE', 'TEMPLATE:SUBMIT_FOR_REVIEW',
+				'TEMPLATE:WITHDRAW_FROM_REVIEW', 'TEMPLATE:PUBLISH', 'TEMPLATE:RETIRE',
+				'TEMPLATE:VIEW_VALIDATION_RESULTS',
+				'MEDIA_ASSET:UPLOAD', 'MEDIA_ASSET:READ', 'MEDIA_ASSET:UPDATE_METADATA',
+				'MEDIA_ASSET:REPLACE', 'MEDIA_ASSET:DELETE', 'MEDIA_ASSET:ATTACH',
+				'MEDIA_ASSET:DETACH', 'MEDIA_ASSET:VIEW_VALIDATION_RESULTS'
+			  )
+			  AND NOT EXISTS (
+				SELECT 1 FROM role_permission rp
+				WHERE rp.role_id = r.role_id AND rp.permission_id = p.permission_id
+			  );
+		</sql>
+	</changeSet>
+
+</databaseChangeLog>

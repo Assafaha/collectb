@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>org.springframework.boot</groupId>
+		<artifactId>spring-boot-starter-parent</artifactId>
+		<version>4.1.2</version>
+		<relativePath/> <!-- lookup parent from repository -->
+	</parent>
+	<groupId>com.example</groupId>
+	<artifactId>collectb</artifactId>
+	<version>0.0.1-SNAPSHOT</version>
+	<packaging>pom</packaging>
+	<name>collectb</name>
+	<description>
+		Reactor/aggregator POM for the Collectb Authenticated Digital Collectibles platform.
+		Per the design doc's modular-monolith architecture, implemented bounded contexts are
+		separate Maven modules assembled into the deployable Platform API. The current reactor
+		contains Identity, Brand, Catalog, and Platform API; remaining business contexts will
+		be added as they are implemented. This keeps delivery simple while preserving explicit
+		module boundaries and a path to independent deployment where operationally justified.
+	</description>
+	<url/>
+	<licenses>
+		<license/>
+	</licenses>
+	<developers>
+		<developer/>
+	</developers>
+	<scm>
+		<connection/>
+		<developerConnection/>
+		<tag/>
+		<url/>
+	</scm>
+	<properties>
+		<java.version>27</java.version>
+		<!-- Spring Security's Argon2PasswordEncoder delegates to BouncyCastle's Argon2
+		     implementation at runtime, but does not declare it as a transitive dependency -
+		     it must be added explicitly (not managed by the Spring Boot BOM). Centralized here
+		     so every module that needs it uses the same version. -->
+		<bouncycastle.version>1.84</bouncycastle.version>
+	</properties>
+
+	<modules>
+		<module>collectb-identity</module>
+		<module>collectb-brand</module>
+		<module>collectb-catalog</module>
+		<module>collectb-platform-api</module>
+	</modules>
+
+	<dependencyManagement>
+		<dependencies>
+			<dependency>
+				<groupId>com.example</groupId>
+				<artifactId>collectb-identity</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>com.example</groupId>
+				<artifactId>collectb-brand</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>com.example</groupId>
+				<artifactId>collectb-catalog</artifactId>
+				<version>${project.version}</version>
+			</dependency>
+			<dependency>
+				<groupId>org.bouncycastle</groupId>
+				<artifactId>bcprov-jdk18on</artifactId>
+				<version>${bouncycastle.version}</version>
+			</dependency>
+		</dependencies>
+	</dependencyManagement>
+
+</project>

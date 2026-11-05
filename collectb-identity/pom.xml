@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+	<modelVersion>4.0.0</modelVersion>
+	<parent>
+		<groupId>com.example</groupId>
+		<artifactId>collectb</artifactId>
+		<version>0.0.1-SNAPSHOT</version>
+		<relativePath>../pom.xml</relativePath>
+	</parent>
+
+	<artifactId>collectb-identity</artifactId>
+	<packaging>jar</packaging>
+	<name>collectb-identity</name>
+	<description>
+		The Identity bounded context/module (design doc "Identity Service"): platform_user,
+		identity_credential, role, permission, role_assignment JPA entities and repositories;
+		the PlatformUserPrincipal/PlatformUserDetailsService authentication layer; the argon2id
+		password encoder; and the embedded Spring Authorization Server (OAuth2/OIDC, JWT access
+		tokens, refresh tokens) configuration. Packaged as a plain library jar (no
+		spring-boot-maven-plugin/main class here) so that other bounded-context modules -
+		Brand, Catalog, ADC, Ownership, etc. - can depend on it for authentication/authorization
+		without depending on the deployable Platform API application itself. Per the design doc:
+		"This milestone should produce a reusable identity layer that every other module can
+		depend on."
+	</description>
+
+	<dependencies>
+		<!-- spring-boot-starter-data-jpa transitively brings in spring-boot-starter-jdbc. -->
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-data-jpa</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-security</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-oauth2-authorization-server</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-oauth2-jose</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.bouncycastle</groupId>
+			<artifactId>bcprov-jdk18on</artifactId>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.boot</groupId>
+			<artifactId>spring-boot-starter-webmvc-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+
+		<dependency>
+			<groupId>org.springframework.security</groupId>
+			<artifactId>spring-security-test</artifactId>
+			<scope>test</scope>
+		</dependency>
+	</dependencies>
+
+</project>

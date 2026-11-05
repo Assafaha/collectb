@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+	xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+		http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.24.xsd">
+
+	<!-- Collector Service: owns the collector account/profile domain, separate from
+	     ADC lifecycle, custody, or blockchain state. -->
+
+	<changeSet id="003-01-collector" author="copilot">
+		<createTable tableName="collector">
+			<column name="collector_id" type="UUID" defaultValueComputed="gen_random_uuid()">
+				<constraints primaryKey="true" nullable="false"/>
+			</column>
+			<column name="user_id" type="UUID">
+				<constraints nullable="false"/>
+			</column>
+			<column name="display_name" type="VARCHAR(200)">
+				<constraints nullable="false"/>
+			</column>
+			<column name="account_status" type="VARCHAR(30)" defaultValue="ACTIVE">
+				<constraints nullable="false"/>
+			</column>
+			<column name="kyc_status" type="VARCHAR(30)" defaultValue="NOT_STARTED">
+				<constraints nullable="false"/>
+			</column>
+			<column name="eligibility_status" type="VARCHAR(30)" defaultValue="ELIGIBLE">
+				<constraints nullable="false"/>
+			</column>
+			<column name="onboarding_status" type="VARCHAR(30)" defaultValue="NOT_STARTED">
+				<constraints nullable="false"/>
+			</column>
+			<column name="preferences" type="JSONB"/>
+			<column name="created_at" type="TIMESTAMPTZ" defaultValueComputed="CURRENT_TIMESTAMP">
+				<constraints nullable="false"/>
+			</column>
+			<column name="updated_at" type="TIMESTAMPTZ" defaultValueComputed="CURRENT_TIMESTAMP">
+				<constraints nullable="false"/>
+			</column>
+		</createTable>
+		<addUniqueConstraint tableName="collector" columnNames="user_id" constraintName="uq_collector_user_id"/>
+		<addForeignKeyConstraint baseTableName="collector" baseColumnNames="user_id"
+			constraintName="fk_collector_user" referencedTableName="platform_user"
+			referencedColumnNames="user_id" onDelete="CASCADE"/>
+		<createIndex tableName="collector" indexName="ix_collector_account_status">
+			<column name="account_status"/>
+		</createIndex>
+		<createIndex tableName="collector" indexName="ix_collector_kyc_status">
+			<column name="kyc_status"/>
+		</createIndex>
+	</changeSet>
+
+</databaseChangeLog>

@@ -1,0 +1,14 @@
+select platform_user.user_id,
+       platform_user.email,
+       platform_user.display_name,
+       r.role_name,
+       role_type,
+       ra.scope_type,
+       ra.scope_id,
+       ra.role_assignment_id
+from platform_user
+inner join public.role_assignment ra on platform_user.user_id = ra.user_id
+inner join public.role r on r.role_id = ra.role_id
+where email = 'Satoshi@example.com' and status='ACTIVE';
+
+Shiris@

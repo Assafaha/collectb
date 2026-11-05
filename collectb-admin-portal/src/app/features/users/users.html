@@ -1,0 +1,263 @@
+<div class="cb-page-header">
+  <h1>Users</h1>
+  <p>{{ isPlatformAdmin() ? 'Manage user access across every brand.' : 'Manage user access for the brand(s) you administer.' }}</p>
+  @if (isPlatformAdmin()) {
+    <p-button type="button" label="Add user" icon="pi pi-user-plus" (click)="openAddUser()"></p-button>
+  }
+</div>
+
+@if (successMessage()) {
+  <p-message severity="success">{{ successMessage() }}</p-message>
+}
+@if (errorMessage()) {
+  <p-message severity="error">{{ errorMessage() }}</p-message>
+}
+<div class="cb-card">
+<div class="cb-card">
+  @if (loading()) {
+    <p class="cb-empty-state">Loading&hellip;</p>
+  } @else if (rows().length === 0) {
+    <p class="cb-empty-state">No platform users found.</p>
+  } @else {
+    <ag-grid-angular
+      style="height: 420px; width: 100%;"
+      [rowData]="rows()"
+      [columnDefs]="columnDefs"
+      [defaultColDef]="defaultColDef"
+      [rowHeight]="44"
+      [enableCellTextSelection]="true"
+      [ensureDomOrder]="true"
+    ></ag-grid-angular>
+  }
+</div>
+
+<div class="cb-card">
+  <h2>Grant access</h2>
+  <div class="cb-form-row">
+    <div class="cb-field">
+      <label for="grant-brand">Brand</label>
+      <p-select
+        id="grant-brand"
+        [options]="manageableBrands()"
+        optionLabel="name"
+        optionValue="brandId"
+        [(ngModel)]="grantBrandId"
+        (onChange)="onGrantBrandChange()"
+        placeholder="Select brand"
+      ></p-select>
+    </div>
+    <div class="cb-field">
+      <label for="grant-email">User email</label>
+      <input pInputText id="grant-email" type="text" placeholder="user@example.com" [(ngModel)]="grantEmail" />
+    </div>
+    <div class="cb-field">
+      <label for="grant-role">Role</label>
+      <p-select id="grant-role" [options]="assignableRoles()" [(ngModel)]="grantRoleName" placeholder="Select role"></p-select>
+    </div>
+    <p-button type="button" label="Grant access" icon="pi pi-user-plus" (click)="grant()"></p-button>
+  </div>
+</div>
+
+<p-dialog
+  header="Add user"
+  [(visible)]="addUserVisible"
+  [modal]="true"
+  [style]="{ width: '480px' }"
+  (onHide)="closeAddUser()"
+>
+  @if (createdUser(); as created) {
+    <p-message severity="success">
+      Created {{ created.email }}. Temporary password (shown once): <strong>{{ created.tempPassword }}</strong>
+    </p-message>
+    <p>Grant this user a role from the "Details" view once they appear in the table below.</p>
+    <p-button type="button" label="Close" (click)="closeAddUser()"></p-button>
+  } @else {
+    @if (addUserErrorMessage()) {
+      <p-message severity="error">{{ addUserErrorMessage() }}</p-message>
+    }
+    <div class="cb-form-row">
+      <div class="cb-field">
+        <label for="new-user-email">Email</label>
+        <input pInputText id="new-user-email" type="text" placeholder="user@example.com" [(ngModel)]="newUserEmail" />
+      </div>
+      <div class="cb-field">
+        <label for="new-user-display-name">Display name</label>
+        <input pInputText id="new-user-display-name" type="text" [(ngModel)]="newUserDisplayName" />
+      </div>
+      <div class="cb-field">
+        <label for="new-user-actor-type">Actor type</label>
+        <p-select
+          id="new-user-actor-type"
+          [options]="actorTypes"
+          [(ngModel)]="newUserActorType"
+          placeholder="Select actor type"
+          appendTo="body"
+        ></p-select>
+      </div>
+      <p-button type="button" label="Create user" icon="pi pi-check" (click)="createUser()"></p-button>
+    </div>
+  }
+</p-dialog>
+
+<p-dialog
+  header="User details"
+  [(visible)]="detailVisible"
+  [modal]="true"
+  [style]="{ width: '640px' }"
+  (onHide)="closeDetail()"
+>
+  @if (selectedUser(); as user) {
+    <div class="user-detail">
+      <div class="user-detail__header">
+        <div>
+          <strong>{{ user.displayName }}</strong>
+          <span class="user-detail__email">{{ user.email }}</span>
+        </div>
+        <p-tag [value]="user.actorType"></p-tag>
+        <p-tag [value]="user.accountStatus" [severity]="user.accountStatus === 'ACTIVE' ? 'success' : 'warn'"></p-tag>
+        @if (isPlatformAdmin() && !editMode()) {
+          <p-button type="button" size="small" label="Edit" icon="pi pi-pencil" (click)="startEdit()"></p-button>
+        }
+      </div>
+
+      @if (detailSuccessMessage()) {
+        <p-message severity="success">{{ detailSuccessMessage() }}</p-message>
+      }
+      @if (detailErrorMessage()) {
+        <p-message severity="error">{{ detailErrorMessage() }}</p-message>
+      }
+
+      @if (editMode()) {
+        <h3>Edit user</h3>
+        <div class="cb-form-row">
+          <div class="cb-field">
+            <label for="edit-display-name">Display name</label>
+            <input pInputText id="edit-display-name" type="text" [(ngModel)]="editDisplayName" />
+          </div>
+          <div class="cb-field">
+            <label for="edit-actor-type">Actor type</label>
+            <p-select
+              id="edit-actor-type"
+              [options]="actorTypes"
+              [(ngModel)]="editActorType"
+              appendTo="body"
+            ></p-select>
+          </div>
+          <div class="cb-field">
+            <label for="edit-account-status">Account status</label>
+            <p-select
+              id="edit-account-status"
+              [options]="accountStatuses"
+              [(ngModel)]="editAccountStatus"
+              appendTo="body"
+            ></p-select>
+          </div>
+          <p-button type="button" severity="success" label="Save" icon="pi pi-check" (click)="saveEdit()"></p-button>
+          <p-button type="button" severity="secondary" label="Cancel" (click)="cancelEdit()"></p-button>
+        </div>
+      }
+
+      <h3>Roles</h3>
+      @if (user.roleAssignments.length === 0) {
+        <p class="cb-empty-state">No role assignments.</p>
+      } @else {
+        <table class="user-detail__table">
+          <thead>
+            <tr>
+              <th>Role</th>
+              <th>Scope</th>
+              <th>Assigned at</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (assignment of user.roleAssignments; track assignment.roleAssignmentId) {
+              <tr>
+                <td>{{ assignment.roleName }}</td>
+                <td>{{ assignment.scopeLabel ?? assignment.scopeType }}</td>
+                <td>{{ assignment.assignedAt }}</td>
+                <td>
+                  @if (canRevokeAssignment(assignment)) {
+                    <p-button
+                      type="button"
+                      severity="danger"
+                      size="small"
+                      label="Revoke"
+                      (click)="revokeRoleFromSelectedUser(assignment.roleAssignmentId)"
+                    ></p-button>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      }
+
+      <h3>Effective permissions</h3>
+      @if (!isPlatformAdmin() && !isViewingSelf()) {
+        <p>Roles and permissions shown here are limited to the brands you administer.</p>
+      }
+      @if (user.permissions.length === 0) {
+        <p class="cb-empty-state">No effective permissions.</p>
+      } @else {
+        <div class="user-detail__permissions">
+          @for (permission of user.permissions; track permission) {
+            <p-tag [value]="permission" severity="info"></p-tag>
+          }
+        </div>
+      }
+
+      <h3>Add role</h3>
+      <div class="cb-form-row">
+        @if (isPlatformAdmin()) {
+        <div class="cb-field">
+          <label for="new-role-name">Role</label>
+          <p-select
+            id="new-role-name"
+            [options]="roleCatalog()"
+            optionLabel="roleName"
+            optionValue="roleName"
+            [(ngModel)]="newRoleName"
+            placeholder="Select role"
+            appendTo="body"
+          ></p-select>
+        </div>
+        }
+        @if (selectedRoleType === 'BRAND') {
+          <div class="cb-field">
+            <label for="new-role-brand">Brand</label>
+            <p-select
+              id="new-role-brand"
+              [options]="manageableBrands()"
+              optionLabel="name"
+              optionValue="brandId"
+              [(ngModel)]="newRoleBrandId"
+              (onChange)="onDetailBrandChange()"
+              placeholder="Select brand"
+              appendTo="body"
+            ></p-select>
+          </div>
+        }
+        @if (!isPlatformAdmin()) {
+          <div class="cb-field">
+            <label for="new-brand-role-name">Role</label>
+            <p-select
+              id="new-brand-role-name"
+              [options]="detailAssignableRoles()"
+              [(ngModel)]="newRoleName"
+              placeholder="Select role"
+              appendTo="body"
+            ></p-select>
+          </div>
+        }
+        <p-button type="button" severity="success" label="Grant role" icon="pi pi-plus" (click)="grantRoleToSelectedUser()"></p-button>
+      </div>
+    </div>
+  } @else {
+    @if (detailErrorMessage()) {
+      <p-message severity="error">{{ detailErrorMessage() }}</p-message>
+    } @else {
+    <p class="cb-empty-state">Loading&hellip;</p>
+    }
+  }
+</p-dialog>

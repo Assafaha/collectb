@@ -1,0 +1,58 @@
+<div class="cb-page-header">
+  <h1>Platform Admin &middot; Permissions</h1>
+  <p>Create, edit and delete the permission catalog.</p>
+  <p-button type="button" label="Add permission" icon="pi pi-plus" (click)="openCreate()"></p-button>
+</div>
+
+@if (errorMessage()) {
+  <p-message severity="error">{{ errorMessage() }}</p-message>
+}
+
+<div class="cb-card">
+  @if (loading()) {
+    <p class="cb-empty-state">Loading&hellip;</p>
+  } @else if (permissions().length === 0) {
+    <p class="cb-empty-state">No permissions defined yet.</p>
+  } @else {
+    <ag-grid-angular
+      style="height: 420px; width: 100%;"
+      [rowData]="permissions()"
+      [columnDefs]="columnDefs"
+      [defaultColDef]="defaultColDef"
+      [rowHeight]="44"
+      [enableCellTextSelection]="true"
+      [ensureDomOrder]="true"
+    ></ag-grid-angular>
+  }
+</div>
+
+<p-dialog
+  [header]="editingPermission() ? 'Edit permission' : 'Add permission'"
+  [(visible)]="formVisible"
+  [modal]="true"
+  [style]="{ width: '480px' }"
+  (onHide)="closeForm()"
+>
+  @if (formErrorMessage()) {
+    <p-message severity="error">{{ formErrorMessage() }}</p-message>
+  }
+  <div class="cb-form-row">
+    <div class="cb-field">
+      <label for="perm-key">Permission key</label>
+      <input pInputText id="perm-key" type="text" placeholder="COLLECTION:UPDATE" [(ngModel)]="formPermissionKey" />
+    </div>
+    <div class="cb-field">
+      <label for="perm-resource">Resource type</label>
+      <input pInputText id="perm-resource" type="text" placeholder="COLLECTION" [(ngModel)]="formResourceType" />
+    </div>
+    <div class="cb-field">
+      <label for="perm-action">Action</label>
+      <input pInputText id="perm-action" type="text" placeholder="WRITE" [(ngModel)]="formAction" />
+    </div>
+    <div class="cb-field">
+      <label for="perm-description">Description</label>
+      <input pInputText id="perm-description" type="text" placeholder="Optional" [(ngModel)]="formDescription" />
+    </div>
+    <p-button type="button" severity="success" label="Save" icon="pi pi-check" (click)="save()"></p-button>
+  </div>
+</p-dialog>

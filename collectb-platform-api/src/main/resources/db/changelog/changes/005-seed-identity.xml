@@ -1,0 +1,333 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+	xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+		http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.24.xsd">
+
+	<!-- Example role catalog, per design doc 2.2.2 "Identity Tables and Role Model":
+	     COLLECTOR, BRAND_VIEWER, BRAND_EDITOR, BRAND_ADMIN, PLATFORM_ADMIN, SUPPORT_AGENT,
+	     COMPLIANCE_OFFICER, SERVICE_ACCOUNT. role_type groups roles by the scope_type they are
+	     assigned under in role_assignment (PLATFORM, BRAND, COLLECTOR, SUPPORT, COMPLIANCE,
+	     SERVICE). is_privileged flags roles that should require step-up authentication per
+	     section 2.2.3/2.2.4. Written as native Liquibase <insert> changes (fixed role_id/
+	     permission_id UUIDs below) rather than raw SQL so role_permission can reference these
+	     rows by literal foreign key without a lookup subquery. -->
+	<changeSet id="005-seed-roles" author="copilot">
+		<preConditions onFail="MARK_RAN">
+			<sqlCheck expectedResult="0">SELECT COUNT(*) FROM role WHERE role_name = 'COLLECTOR';</sqlCheck>
+		</preConditions>
+		<insert tableName="role">
+			<column name="role_id" value="140be251-444d-45b0-b9be-aca84b6db7d8"/>
+			<column name="role_name" value="COLLECTOR"/>
+			<column name="description" value="Collector account holder; access limited to own account, vault, and ownership records."/>
+			<column name="role_type" value="COLLECTOR"/>
+			<column name="is_privileged" valueBoolean="false"/>
+		</insert>
+		<insert tableName="role">
+			<column name="role_id" value="d68b99a4-23d6-4d9e-b1f2-5ca85f0cb274"/>
+			<column name="role_name" value="BRAND_VIEWER"/>
+			<column name="description" value="Read-only access to a single brand's collections, templates, and reports."/>
+			<column name="role_type" value="BRAND"/>
+			<column name="is_privileged" valueBoolean="false"/>
+		</insert>
+		<insert tableName="role">
+			<column name="role_id" value="03c94108-a4a7-40a6-a457-5c647e0c67ab"/>
+			<column name="role_name" value="BRAND_EDITOR"/>
+			<column name="description" value="Can create and edit collections/templates within a single assigned brand."/>
+			<column name="role_type" value="BRAND"/>
+			<column name="is_privileged" valueBoolean="false"/>
+		</insert>
+		<insert tableName="role">
+			<column name="role_id" value="59839925-d3af-4cba-aec8-8aed5691f7fc"/>
+			<column name="role_name" value="BRAND_ADMIN"/>
+			<column name="description" value="Full administrative access within a single assigned brand, including template approval."/>
+			<column name="role_type" value="BRAND"/>
+			<column name="is_privileged" valueBoolean="true"/>
+		</insert>
+		<insert tableName="role">
+			<column name="role_id" value="d4dec3b5-f0b2-4a1d-87ef-298491732bdf"/>
+			<column name="role_name" value="PLATFORM_ADMIN"/>
+			<column name="description" value="Cross-brand platform configuration and identity/role administration."/>
+			<column name="role_type" value="PLATFORM"/>
+			<column name="is_privileged" valueBoolean="true"/>
+		</insert>
+		<insert tableName="role">
+			<column name="role_id" value="ae2c3ef5-28bb-4600-a6e5-83c566ec59cf"/>
+			<column name="role_name" value="SUPPORT_AGENT"/>
+			<column name="description" value="Limited, auditable access to user accounts for support purposes."/>
+			<column name="role_type" value="SUPPORT"/>
+			<column name="is_privileged" valueBoolean="false"/>
+		</insert>
+		<insert tableName="role">
+			<column name="role_id" value="b434dc32-8424-41a7-86a1-0e4d5c895157"/>
+			<column name="role_name" value="COMPLIANCE_OFFICER"/>
+			<column name="description" value="Access to audit trails and compliance-sensitive records."/>
+			<column name="role_type" value="COMPLIANCE"/>
+			<column name="is_privileged" valueBoolean="true"/>
+		</insert>
+		<insert tableName="role">
+			<column name="role_id" value="65c62ae8-14f5-4f42-9325-5f0409701a64"/>
+			<column name="role_name" value="SERVICE_ACCOUNT"/>
+			<column name="description" value="Non-human actor calling internal APIs under an explicit service scope."/>
+			<column name="role_type" value="SERVICE"/>
+			<column name="is_privileged" valueBoolean="true"/>
+		</insert>
+	</changeSet>
+
+	<!-- Example fine-grained permissions. permission_key follows RESOURCE:ACTION convention;
+	     resource_type/action columns duplicate that same information in a queryable form. The
+	     brand-scoped resources (COLLECTION/TEMPLATE) deliberately omit any brand qualifier -
+	     which brand a grant applies to is carried entirely by role_assignment.scope_type='BRAND'/
+	     scope_id, never by the permission key itself. -->
+	<changeSet id="005-seed-permissions" author="copilot">
+		<preConditions onFail="MARK_RAN">
+			<sqlCheck expectedResult="0">SELECT COUNT(*) FROM permission WHERE permission_key = 'COLLECTOR_PROFILE:READ';</sqlCheck>
+		</preConditions>
+		<insert tableName="permission">
+			<column name="permission_id" value="9d3c7ef3-010e-4992-960d-5fa8a7f87a29"/>
+			<column name="permission_key" value="COLLECTOR_PROFILE:READ"/>
+			<column name="resource_type" value="COLLECTOR_PROFILE"/>
+			<column name="action" value="READ"/>
+			<column name="description" value="View a collector's own profile and account context."/>
+		</insert>
+		<insert tableName="permission">
+			<column name="permission_id" value="2d7cd41a-1c19-4800-a719-61712cedd9fc"/>
+			<column name="permission_key" value="COLLECTOR_PROFILE:WRITE"/>
+			<column name="resource_type" value="COLLECTOR_PROFILE"/>
+			<column name="action" value="WRITE"/>
+			<column name="description" value="Update a collector's own profile and preferences."/>
+		</insert>
+		<insert tableName="permission">
+			<column name="permission_id" value="94101027-31c2-4348-a895-3e7221f0b766"/>
+			<column name="permission_key" value="COLLECTION:READ"/>
+			<column name="resource_type" value="COLLECTION"/>
+			<column name="action" value="READ"/>
+			<column name="description" value="View collections within an assigned brand scope."/>
+		</insert>
+		<insert tableName="permission">
+			<column name="permission_id" value="e37266df-4cfc-4263-a79b-f8ef5dc769b2"/>
+			<column name="permission_key" value="COLLECTION:CREATE"/>
+			<column name="resource_type" value="COLLECTION"/>
+			<column name="action" value="CREATE"/>
+			<column name="description" value="Create a new collection within an assigned brand scope."/>
+		</insert>
+		<insert tableName="permission">
+			<column name="permission_id" value="814ae09e-6622-4d9c-9f25-721818dfc314"/>
+			<column name="permission_key" value="COLLECTION:UPDATE"/>
+			<column name="resource_type" value="COLLECTION"/>
+			<column name="action" value="UPDATE"/>
+			<column name="description" value="Edit a collection within an assigned brand scope."/>
+		</insert>
+		<insert tableName="permission">
+			<column name="permission_id" value="e773d3de-a0de-454e-8ce9-335313235fd9"/>
+			<column name="permission_key" value="COLLECTION:DELETE"/>
+			<column name="resource_type" value="COLLECTION"/>
+			<column name="action" value="DELETE"/>
+			<column name="description" value="Delete a collection within an assigned brand scope (privileged)."/>
+		</insert>
+		<insert tableName="permission">
+			<column name="permission_id" value="1fe36007-e90a-4363-8ac4-95349d735d13"/>
+			<column name="permission_key" value="COLLECTION:SUBMIT_FOR_REVIEW"/>
+			<column name="resource_type" value="COLLECTION"/>
+			<column name="action" value="SUBMIT_FOR_REVIEW"/>
+			<column name="description" value="Submit a collection for review ahead of template approval."/>
+		</insert>
+		<insert tableName="permission">
+			<column name="permission_id" value="b4c5c591-f7c7-451d-91f1-ebef25b00e76"/>
+			<column name="permission_key" value="TEMPLATE:READ"/>
+			<column name="resource_type" value="TEMPLATE"/>
+			<column name="action" value="READ"/>
+			<column name="description" value="View collectible templates within an assigned brand scope."/>
+		</insert>
+		<insert tableName="permission">
+			<column name="permission_id" value="7528deab-5480-48dc-ad11-1edb339a3539"/>
+			<column name="permission_key" value="TEMPLATE:CREATE"/>
+			<column name="resource_type" value="TEMPLATE"/>
+			<column name="action" value="CREATE"/>
+			<column name="description" value="Create a new collectible template within an assigned brand scope."/>
+		</insert>
+		<insert tableName="permission">
+			<column name="permission_id" value="e3e3d318-69b2-4d3f-8fdb-8241e2aa8424"/>
+			<column name="permission_key" value="TEMPLATE:UPDATE"/>
+			<column name="resource_type" value="TEMPLATE"/>
+			<column name="action" value="UPDATE"/>
+			<column name="description" value="Edit a collectible template within an assigned brand scope."/>
+		</insert>
+		<insert tableName="permission">
+			<column name="permission_id" value="86e91424-ca11-4f7c-9868-72e128157460"/>
+			<column name="permission_key" value="TEMPLATE:APPROVE"/>
+			<column name="resource_type" value="TEMPLATE"/>
+			<column name="action" value="APPROVE"/>
+			<column name="description" value="Approve a collectible template for issuance (privileged, step-up auth required)."/>
+		</insert>
+		<insert tableName="permission">
+			<column name="permission_id" value="65e2e2ff-a631-4d92-849c-83a80e7ba94c"/>
+			<column name="permission_key" value="PLATFORM_BRAND:MANAGE"/>
+			<column name="resource_type" value="PLATFORM_BRAND"/>
+			<column name="action" value="MANAGE"/>
+			<column name="description" value="Create/configure brands at the platform level (privileged)."/>
+		</insert>
+		<insert tableName="permission">
+			<column name="permission_id" value="7d06fe92-7484-4960-adef-9ec9e64ac69b"/>
+			<column name="permission_key" value="PLATFORM_IDENTITY:MANAGE"/>
+			<column name="resource_type" value="PLATFORM_IDENTITY"/>
+			<column name="action" value="MANAGE"/>
+			<column name="description" value="Administer roles, permissions, and role assignments (privileged)."/>
+		</insert>
+		<insert tableName="permission">
+			<column name="permission_id" value="52a2ea53-2546-4cba-b356-ec7484cf1ef5"/>
+			<column name="permission_key" value="SUPPORT_USER:VIEW"/>
+			<column name="resource_type" value="SUPPORT_USER"/>
+			<column name="action" value="VIEW"/>
+			<column name="description" value="View limited user account details for support purposes (audited)."/>
+		</insert>
+		<insert tableName="permission">
+			<column name="permission_id" value="a436e3ad-c951-4917-b6ea-426b08ebf682"/>
+			<column name="permission_key" value="COMPLIANCE_AUDIT:VIEW"/>
+			<column name="resource_type" value="COMPLIANCE_AUDIT"/>
+			<column name="action" value="VIEW"/>
+			<column name="description" value="View audit trail entries for compliance review."/>
+		</insert>
+		<insert tableName="permission">
+			<column name="permission_id" value="13fbd3ba-8bfd-449c-9568-b1db1578f519"/>
+			<column name="permission_key" value="SERVICE_API:INVOKE"/>
+			<column name="resource_type" value="SERVICE_API"/>
+			<column name="action" value="INVOKE"/>
+			<column name="description" value="Call internal service-to-service APIs under a service account scope."/>
+		</insert>
+	</changeSet>
+
+	<!-- Example role -> permission mappings, referencing the fixed role_id/permission_id UUIDs
+	     seeded above directly (no lookup subquery needed since both sides use literal ids here).
+	     BRAND_VIEWER is read-only; BRAND_EDITOR gets every action except the privileged
+	     DELETE/APPROVE; BRAND_ADMIN keeps all of them, including the privileged ones. -->
+	<changeSet id="005-seed-role-permissions" author="copilot">
+		<preConditions onFail="MARK_RAN">
+			<sqlCheck expectedResult="0">SELECT COUNT(*) FROM role_permission;</sqlCheck>
+		</preConditions>
+		<!-- COLLECTOR -->
+		<insert tableName="role_permission">
+			<column name="role_id" value="140be251-444d-45b0-b9be-aca84b6db7d8"/>
+			<column name="permission_id" value="9d3c7ef3-010e-4992-960d-5fa8a7f87a29"/>
+		</insert>
+		<insert tableName="role_permission">
+			<column name="role_id" value="140be251-444d-45b0-b9be-aca84b6db7d8"/>
+			<column name="permission_id" value="2d7cd41a-1c19-4800-a719-61712cedd9fc"/>
+		</insert>
+		<!-- BRAND_VIEWER -->
+		<insert tableName="role_permission">
+			<column name="role_id" value="d68b99a4-23d6-4d9e-b1f2-5ca85f0cb274"/>
+			<column name="permission_id" value="94101027-31c2-4348-a895-3e7221f0b766"/>
+		</insert>
+		<insert tableName="role_permission">
+			<column name="role_id" value="d68b99a4-23d6-4d9e-b1f2-5ca85f0cb274"/>
+			<column name="permission_id" value="b4c5c591-f7c7-451d-91f1-ebef25b00e76"/>
+		</insert>
+		<!-- BRAND_EDITOR -->
+		<insert tableName="role_permission">
+			<column name="role_id" value="03c94108-a4a7-40a6-a457-5c647e0c67ab"/>
+			<column name="permission_id" value="94101027-31c2-4348-a895-3e7221f0b766"/>
+		</insert>
+		<insert tableName="role_permission">
+			<column name="role_id" value="03c94108-a4a7-40a6-a457-5c647e0c67ab"/>
+			<column name="permission_id" value="e37266df-4cfc-4263-a79b-f8ef5dc769b2"/>
+		</insert>
+		<insert tableName="role_permission">
+			<column name="role_id" value="03c94108-a4a7-40a6-a457-5c647e0c67ab"/>
+			<column name="permission_id" value="814ae09e-6622-4d9c-9f25-721818dfc314"/>
+		</insert>
+		<insert tableName="role_permission">
+			<column name="role_id" value="03c94108-a4a7-40a6-a457-5c647e0c67ab"/>
+			<column name="permission_id" value="1fe36007-e90a-4363-8ac4-95349d735d13"/>
+		</insert>
+		<insert tableName="role_permission">
+			<column name="role_id" value="03c94108-a4a7-40a6-a457-5c647e0c67ab"/>
+			<column name="permission_id" value="b4c5c591-f7c7-451d-91f1-ebef25b00e76"/>
+		</insert>
+		<insert tableName="role_permission">
+			<column name="role_id" value="03c94108-a4a7-40a6-a457-5c647e0c67ab"/>
+			<column name="permission_id" value="7528deab-5480-48dc-ad11-1edb339a3539"/>
+		</insert>
+		<insert tableName="role_permission">
+			<column name="role_id" value="03c94108-a4a7-40a6-a457-5c647e0c67ab"/>
+			<column name="permission_id" value="e3e3d318-69b2-4d3f-8fdb-8241e2aa8424"/>
+		</insert>
+		<!-- BRAND_ADMIN -->
+		<insert tableName="role_permission">
+			<column name="role_id" value="59839925-d3af-4cba-aec8-8aed5691f7fc"/>
+			<column name="permission_id" value="94101027-31c2-4348-a895-3e7221f0b766"/>
+		</insert>
+		<insert tableName="role_permission">
+			<column name="role_id" value="59839925-d3af-4cba-aec8-8aed5691f7fc"/>
+			<column name="permission_id" value="e37266df-4cfc-4263-a79b-f8ef5dc769b2"/>
+		</insert>
+		<insert tableName="role_permission">
+			<column name="role_id" value="59839925-d3af-4cba-aec8-8aed5691f7fc"/>
+			<column name="permission_id" value="814ae09e-6622-4d9c-9f25-721818dfc314"/>
+		</insert>
+		<insert tableName="role_permission">
+			<column name="role_id" value="59839925-d3af-4cba-aec8-8aed5691f7fc"/>
+			<column name="permission_id" value="e773d3de-a0de-454e-8ce9-335313235fd9"/>
+		</insert>
+		<insert tableName="role_permission">
+			<column name="role_id" value="59839925-d3af-4cba-aec8-8aed5691f7fc"/>
+			<column name="permission_id" value="1fe36007-e90a-4363-8ac4-95349d735d13"/>
+		</insert>
+		<insert tableName="role_permission">
+			<column name="role_id" value="59839925-d3af-4cba-aec8-8aed5691f7fc"/>
+			<column name="permission_id" value="b4c5c591-f7c7-451d-91f1-ebef25b00e76"/>
+		</insert>
+		<insert tableName="role_permission">
+			<column name="role_id" value="59839925-d3af-4cba-aec8-8aed5691f7fc"/>
+			<column name="permission_id" value="7528deab-5480-48dc-ad11-1edb339a3539"/>
+		</insert>
+		<insert tableName="role_permission">
+			<column name="role_id" value="59839925-d3af-4cba-aec8-8aed5691f7fc"/>
+			<column name="permission_id" value="e3e3d318-69b2-4d3f-8fdb-8241e2aa8424"/>
+		</insert>
+		<insert tableName="role_permission">
+			<column name="role_id" value="59839925-d3af-4cba-aec8-8aed5691f7fc"/>
+			<column name="permission_id" value="86e91424-ca11-4f7c-9868-72e128157460"/>
+		</insert>
+		<!-- PLATFORM_ADMIN -->
+		<insert tableName="role_permission">
+			<column name="role_id" value="d4dec3b5-f0b2-4a1d-87ef-298491732bdf"/>
+			<column name="permission_id" value="65e2e2ff-a631-4d92-849c-83a80e7ba94c"/>
+		</insert>
+		<insert tableName="role_permission">
+			<column name="role_id" value="d4dec3b5-f0b2-4a1d-87ef-298491732bdf"/>
+			<column name="permission_id" value="7d06fe92-7484-4960-adef-9ec9e64ac69b"/>
+		</insert>
+		<!-- SUPPORT_AGENT -->
+		<insert tableName="role_permission">
+			<column name="role_id" value="ae2c3ef5-28bb-4600-a6e5-83c566ec59cf"/>
+			<column name="permission_id" value="52a2ea53-2546-4cba-b356-ec7484cf1ef5"/>
+		</insert>
+		<!-- COMPLIANCE_OFFICER -->
+		<insert tableName="role_permission">
+			<column name="role_id" value="b434dc32-8424-41a7-86a1-0e4d5c895157"/>
+			<column name="permission_id" value="a436e3ad-c951-4917-b6ea-426b08ebf682"/>
+		</insert>
+		<!-- SERVICE_ACCOUNT -->
+		<insert tableName="role_permission">
+			<column name="role_id" value="65c62ae8-14f5-4f42-9325-5f0409701a64"/>
+			<column name="permission_id" value="13fbd3ba-8bfd-449c-9568-b1db1578f519"/>
+		</insert>
+	</changeSet>
+
+	<!-- Seed the remaining identity data needed to exercise the first login flow: three seed
+	     users all sharing the password "abc123" (admin/platform admin, Satoshi/brand admin,
+	     Omri/collector), a default "Pokemon" brand, and the sample role assignments tying users
+	     to the roles seeded above (looked up by role_name, not the fixed role_id values, so this
+	     file stays readable without cross-referencing the UUIDs above). This is intentionally
+	     executed once, guarded by a precondition so local reboots or repeated app starts do not
+	     duplicate the seed data. -->
+	<changeSet id="005-seed-identity-data" author="copilot">
+		<preConditions onFail="MARK_RAN">
+			<sqlCheck expectedResult="0">SELECT COUNT(*) FROM platform_user WHERE email = 'admin@example.com';</sqlCheck>
+		</preConditions>
+		<sqlFile path="insert.sql" relativeToChangelogFile="true" splitStatements="true" stripComments="true"/>
+	</changeSet>
+
+</databaseChangeLog>

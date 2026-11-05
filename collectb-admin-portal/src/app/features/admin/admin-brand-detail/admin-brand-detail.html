@@ -1,0 +1,60 @@
+@if (brand(); as b) {
+  <a routerLink="/admin/brands" class="cb-back-link"><i class="pi pi-arrow-left"></i> Back to admin brands</a>
+  <div class="cb-page-header">
+    <h1>{{ b.name }} <span class="cb-badge" [class.cb-badge-success]="b.licenseStatus === 'ACTIVE'"
+        [class.cb-badge-neutral]="b.licenseStatus === 'DRAFT'"
+        [class.cb-badge-warning]="b.licenseStatus === 'SUSPENDED'"
+        [class.cb-badge-danger]="b.licenseStatus === 'REVOKED' || b.licenseStatus === 'TERMINATED'">{{ b.licenseStatus }}</span></h1>
+    <p>Code: {{ b.brandCode }}@if (b.description) { &middot; {{ b.description }} }</p>
+  </div>
+}
+
+@if (successMessage()) {
+  <p-message severity="success">{{ successMessage() }}</p-message>
+}
+@if (errorMessage()) {
+  <p-message severity="error">{{ errorMessage() }}</p-message>
+}
+
+<div class="cb-card">
+  <h2>License status</h2>
+  <div class="cb-form-row">
+    <div class="cb-field">
+      <label for="license-status">Status</label>
+      <p-select id="license-status" [options]="licenseStatuses" [(ngModel)]="selectedLicenseStatus"></p-select>
+    </div>
+    <p-button type="button" label="Update status" icon="pi pi-check" (click)="updateLicenseStatus()"></p-button>
+  </div>
+</div>
+
+<div class="cb-card">
+  <h2>Users with access</h2>
+  @if (loading()) {
+    <p class="cb-empty-state">Loading&hellip;</p>
+  } @else if (users().length === 0) {
+    <p class="cb-empty-state">No users have brand access yet.</p>
+  } @else {
+    <ag-grid-angular
+      style="height: 320px; width: 100%;"
+      [rowData]="users()"
+      [columnDefs]="columnDefs"
+      [defaultColDef]="defaultColDef"
+      [rowHeight]="44"
+    ></ag-grid-angular>
+  }
+</div>
+
+<div class="cb-card">
+  <h2>Grant access</h2>
+  <div class="cb-form-row">
+    <div class="cb-field">
+      <label for="admin-grant-email">User email</label>
+      <input pInputText id="admin-grant-email" type="text" placeholder="user@example.com" [(ngModel)]="grantEmail" />
+    </div>
+    <div class="cb-field">
+      <label for="admin-grant-role">Role</label>
+      <p-select id="admin-grant-role" [options]="assignableRoles()" [(ngModel)]="grantRoleName" placeholder="Select role"></p-select>
+    </div>
+    <p-button type="button" label="Grant access" (click)="grant()"></p-button>
+  </div>
+</div>

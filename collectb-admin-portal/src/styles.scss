@@ -1,0 +1,156 @@
+/* You can add global styles to this file, and also import other style files */
+@import 'primeicons/primeicons.css';
+
+:root {
+  --cb-bg: #10131f;
+  --cb-bg-elevated: #161b2c;
+  --cb-surface: #1b2136;
+  --cb-surface-alt: #212844;
+  --cb-border: #2a3350;
+  --cb-border-soft: #232b46;
+  --cb-text: #e6e9f2;
+  --cb-text-muted: #94a3b8;
+  --cb-text-faint: #64748b;
+  --cb-accent: #6366f1;
+  --cb-accent-hover: #7c7ff2;
+  --cb-accent-soft: #6366f126;
+  --cb-success: #22c55e;
+  --cb-success-soft: #22c55e1f;
+  --cb-warning: #f59e0b;
+  --cb-warning-soft: #f59e0b1f;
+  --cb-danger: #ef4444;
+  --cb-danger-soft: #ef44441f;
+  --cb-radius: 10px;
+  --cb-radius-sm: 6px;
+  --cb-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: 'Inter', -apple-system, 'Segoe UI', Roboto, sans-serif;
+  background: var(--cb-bg);
+  color: var(--cb-text);
+}
+
+h1, h2, h3, h4 {
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+a {
+  color: var(--cb-accent);
+}
+
+/* Shared "dashboard card" pattern used across every feature screen. */
+.cb-card {
+  background: var(--cb-surface);
+  border: 1px solid var(--cb-border-soft);
+  border-radius: var(--cb-radius);
+  padding: 1.25rem 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.cb-page-header {
+  margin-bottom: 1.5rem;
+}
+
+.cb-page-header h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+  color: var(--cb-text);
+}
+
+.cb-page-header p {
+  margin: 0;
+  color: var(--cb-text-muted);
+  font-size: 0.92rem;
+}
+
+.cb-back-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--cb-text-muted);
+  text-decoration: none;
+  font-size: 0.85rem;
+  margin-bottom: 0.75rem;
+}
+
+.cb-back-link:hover {
+  color: var(--cb-text);
+}
+
+/* Status pill used for license status / role badges. */
+.cb-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.2rem 0.6rem;
+  border-radius: 999px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+}
+
+.cb-badge-success {
+  background: var(--cb-success-soft);
+  color: var(--cb-success);
+}
+
+.cb-badge-warning {
+  background: var(--cb-warning-soft);
+  color: var(--cb-warning);
+}
+
+.cb-badge-danger {
+  background: var(--cb-danger-soft);
+  color: var(--cb-danger);
+}
+
+.cb-badge-neutral {
+  background: #ffffff14;
+  color: var(--cb-text-muted);
+}
+
+.cb-empty-state {
+  color: var(--cb-text-muted);
+  font-size: 0.9rem;
+  padding: 1.5rem 0;
+  text-align: center;
+}
+
+.cb-form-row {
+  display: flex;
+  gap: 0.75rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+.cb-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.cb-field label {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--cb-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* AG Grid: the shared dark theme (core/ag-grid-theme.ts) handles cell/row/header colors; these
+   overrides just remove the default light wrapper border AG Grid otherwise renders. */
+.ag-root-wrapper {
+  border-radius: var(--cb-radius-sm) !important;
+}

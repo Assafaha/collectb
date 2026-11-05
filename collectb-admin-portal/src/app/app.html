@@ -1,0 +1,88 @@
+<div class="shell" [class.shell-guest]="!authService.isLoggedIn()">
+  @if (authService.isLoggedIn()) {
+    <aside class="sidebar">
+      <div class="sidebar-brand">
+        <div class="brand-mark">C</div>
+        <span class="brand-name">Collectb</span>
+      </div>
+
+      <nav class="sidebar-nav">
+        <a routerLink="/my-brands" routerLinkActive="active" class="nav-link">
+          <i class="pi pi-building"></i>
+          <span>My Brands</span>
+        </a>
+        @if (currentUser.canManageUsers()) {
+          <a routerLink="/users" routerLinkActive="active" class="nav-link">
+            <i class="pi pi-users"></i>
+            <span>Users</span>
+          </a>
+        }
+        @if (currentUser.canViewRoles()) {
+          <a routerLink="/roles" routerLinkActive="active" class="nav-link">
+            <i class="pi pi-id-card"></i>
+            <span>Roles</span>
+          </a>
+        }
+        @if (currentUser.isPlatformAdmin()) {
+          <div class="nav-section-label">Platform Admin</div>
+          <a routerLink="/admin/brands" routerLinkActive="active" class="nav-link">
+            <i class="pi pi-shield"></i>
+            <span>Brands</span>
+          </a>
+          @if (currentUser.canManageRolePermissions()) {
+            <a routerLink="/role-permissions" routerLinkActive="active" class="nav-link">
+              <i class="pi pi-key"></i>
+              <span>Role permissions</span>
+            </a>
+            <a routerLink="/permissions" routerLinkActive="active" class="nav-link">
+              <i class="pi pi-lock"></i>
+              <span>Permissions</span>
+            </a>
+          }
+        }
+      </nav>
+    </aside>
+  }
+
+  <div class="main">
+    @if (authService.isLoggedIn()) {
+      <header class="topbar">
+        <div class="topbar-spacer"></div>
+        <div class="topbar-actions">
+          <div class="profile">
+            <button type="button" class="profile-btn" (click)="toggleProfile()" title="My profile" aria-label="My profile">
+              <i class="pi pi-user"></i>
+            </button>
+            @if (profileOpen()) {
+              <div class="profile-panel">
+                @if (currentUser.me(); as m) {
+                  <p class="profile-name">{{ m.displayName }}</p>
+                  <p class="profile-email">{{ m.email }}</p>
+                  <dl>
+                    <dt>Actor type</dt>
+                    <dd>{{ m.actorType }}</dd>
+                    <dt>Roles</dt>
+                    <dd>{{ m.roles.join(', ') || '—' }}</dd>
+                    <dt>Permissions</dt>
+                    <dd>{{ m.permissions.join(', ') || '—' }}</dd>
+                  </dl>
+                } @else {
+                  <p>Loading&hellip;</p>
+                }
+                <button type="button" class="logout-btn" (click)="logout()">
+                  <i class="pi pi-sign-out"></i>
+                  Log out
+                </button>
+              </div>
+            }
+          </div>
+        </div>
+      </header>
+    }
+    <main class="content">
+      <router-outlet></router-outlet>
+    </main>
+  </div>
+</div>
+
+

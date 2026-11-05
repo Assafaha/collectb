@@ -1,0 +1,22 @@
+<div class="cb-page-header">
+  <h1>My Brands</h1>
+  <p>Brands you have been granted access to manage.</p>
+</div>
+
+<div class="cb-card">
+  @if (loading()) {
+    <p class="cb-empty-state">Loading&hellip;</p>
+  } @else if (rowData().length === 0) {
+    <p class="cb-empty-state">You don't have access to any brand yet.</p>
+  } @else {
+    <ag-grid-angular
+      style="height: 440px; width: 100%;"
+      [rowData]="rowData()"
+      [columnDefs]="columnDefs"
+      [defaultColDef]="defaultColDef"
+      [rowSelection]="'single'"
+      [rowHeight]="44"
+      (cellClicked)="onRowClicked($event.data?.brandId)"
+    ></ag-grid-angular>
+  }
+</div>

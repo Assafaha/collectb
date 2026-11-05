@@ -1,0 +1,297 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+	xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+		http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.24.xsd">
+
+	<!-- Identity, per design doc section 2.2 "First Design Step: Identity Implementation Milestone",
+	     subsection 2.2.2 "Identity Tables and Role Model". Identity is the first domain built
+	     because every later workflow (Brand, Catalog, Collector, ADC, Custody, Blockchain) depends
+	     on knowing who the actor is and what they are allowed to do. -->
+
+	<changeSet id="001-01-pgcrypto" author="copilot">
+		<preConditions onFail="MARK_RAN">
+			<dbms type="postgresql"/>
+		</preConditions>
+		<sql>CREATE EXTENSION IF NOT EXISTS pgcrypto;</sql>
+	</changeSet>
+
+	<changeSet id="001-02-platform-user" author="copilot">
+		<!-- actor_type classifies the authenticated identity. Kept as VARCHAR + CHECK constraint
+		     rather than a native Postgres enum, since the allowed value set is still evolving
+		     with the design doc (e.g. COMPLIANCE_USER was added mid-project) and CHECK constraints
+		     are far cheaper to alter (single ALTER TABLE) than Postgres enum types (add-only,
+		     no rename/remove, awkward transactional semantics). Recommended values per design doc:
+		     COLLECTOR, BRAND_USER, PLATFORM_ADMIN, SUPPORT_USER, COMPLIANCE_USER, SERVICE_ACCOUNT, SYSTEM. -->
+		<createTable tableName="platform_user">
+			<column name="user_id" type="UUID" defaultValueComputed="gen_random_uuid()">
+				<constraints primaryKey="true" nullable="false"/>
+			</column>
+			<column name="email" type="VARCHAR(320)">
+				<constraints nullable="false"/>
+			</column>
+			<column name="display_name" type="VARCHAR(200)">
+				<constraints nullable="false"/>
+			</column>
+			<column name="actor_type" type="VARCHAR(30)" defaultValue="COLLECTOR">
+				<constraints nullable="false"/>
+			</column>
+			<column name="account_status" type="VARCHAR(30)" defaultValue="ACTIVE">
+				<constraints nullable="false"/>
+			</column>
+			<column name="email_verified_at" type="TIMESTAMPTZ"/>
+			<column name="last_login_at" type="TIMESTAMPTZ"/>
+			<column name="created_at" type="TIMESTAMPTZ" defaultValueComputed="CURRENT_TIMESTAMP">
+				<constraints nullable="false"/>
+			</column>
+			<column name="updated_at" type="TIMESTAMPTZ" defaultValueComputed="CURRENT_TIMESTAMP">
+				<constraints nullable="false"/>
+			</column>
+			<!-- created_by is self-referencing (e.g. an admin creating another user); nullable
+			     because the first users (self-registered collectors, seed admins) have no creator. -->
+			<column name="created_by" type="UUID"/>
+			<column name="disabled_reason" type="TEXT"/>
+			<!-- version supports optimistic locking on concurrent identity updates. -->
+			<column name="version" type="BIGINT" defaultValueNumeric="0">
+				<constraints nullable="false"/>
+			</column>
+		</createTable>
+		<addUniqueConstraint tableName="platform_user" columnNames="email" constraintName="uq_platform_user_email"/>
+		<createIndex tableName="platform_user" indexName="ix_platform_user_status">
+			<column name="account_status"/>
+		</createIndex>
+		<createIndex tableName="platform_user" indexName="ix_platform_user_actor_type">
+			<column name="actor_type"/>
+		</createIndex>
+	</changeSet>
+
+	<changeSet id="001-02c-platform-user-actor-type-check" author="copilot">
+		<sql>
+			ALTER TABLE platform_user
+				ADD CONSTRAINT ck_platform_user_actor_type
+				CHECK (actor_type IN ('COLLECTOR', 'BRAND_USER', 'PLATFORM_ADMIN', 'SUPPORT_USER',
+					'COMPLIANCE_USER', 'SERVICE_ACCOUNT', 'SYSTEM'));
+		</sql>
+		<rollback>
+			<sql>ALTER TABLE platform_user DROP CONSTRAINT IF EXISTS ck_platform_user_actor_type;</sql>
+		</rollback>
+	</changeSet>
+
+	<changeSet id="001-02b-platform-user-self-fk" author="copilot">
+		<addForeignKeyConstraint baseTableName="platform_user" baseColumnNames="created_by"
+			constraintName="fk_platform_user_created_by" referencedTableName="platform_user"
+			referencedColumnNames="user_id" onDelete="SET NULL"/>
+	</changeSet>
+
+	<changeSet id="001-03-identity-credential" author="copilot">
+		<!-- identity_credential is an extended implementation model beyond the design doc's
+		     minimal field list (credential_id, user_id, provider, credential_type,
+		     credential_ref, status, created_at, last_used_at), covering password auth,
+		     external IdP linkage, MFA factors, and credential lifecycle (expiry/revocation).
+		     provider/credential_type/status/mfa_factor_type use VARCHAR + CHECK (not native
+		     Postgres enums), consistent with actor_type, since these value sets may still
+		     evolve. Keep in sync with the Java enums in identity.model. -->
+		<createTable tableName="identity_credential">
+			<column name="credential_id" type="UUID" defaultValueComputed="gen_random_uuid()">
+				<constraints primaryKey="true" nullable="false"/>
+			</column>
+			<column name="user_id" type="UUID">
+				<constraints nullable="false"/>
+			</column>
+			<column name="provider" type="VARCHAR(30)" defaultValue="LOCAL">
+				<constraints nullable="false"/>
+			</column>
+			<column name="credential_type" type="VARCHAR(30)" defaultValue="PASSWORD">
+				<constraints nullable="false"/>
+			</column>
+			<!-- provider_subject is the external IdP's subject identifier (e.g. Google/Apple
+			     "sub" claim, brand SSO subject) for federated credentials. -->
+			<column name="provider_subject" type="VARCHAR(255)"/>
+			<!-- credential_ref is an opaque pointer to the credential's authoritative source
+			     (e.g. external IdP subject ID, MFA device ref); distinct from password_hash below. -->
+			<column name="credential_ref" type="VARCHAR(255)"/>
+			<!-- password_hash/password_algorithm are implementation extensions beyond the doc's
+			     minimal field list, required to actually support MVP email/password authentication.
+			     (Renamed from the earlier secret_hash to match the current domain model.) -->
+			<column name="password_hash" type="VARCHAR(255)"/>
+			<column name="password_algorithm" type="VARCHAR(50)"/>
+			<column name="mfa_factor_type" type="VARCHAR(30)"/>
+			<column name="mfa_enabled" type="BOOLEAN" defaultValueBoolean="false">
+				<constraints nullable="false"/>
+			</column>
+			<column name="status" type="VARCHAR(30)" defaultValue="PENDING_VERIFICATION">
+				<constraints nullable="false"/>
+			</column>
+			<column name="created_at" type="TIMESTAMPTZ" defaultValueComputed="CURRENT_TIMESTAMP">
+				<constraints nullable="false"/>
+			</column>
+			<column name="updated_at" type="TIMESTAMPTZ" defaultValueComputed="CURRENT_TIMESTAMP">
+				<constraints nullable="false"/>
+			</column>
+			<column name="last_used_at" type="TIMESTAMPTZ"/>
+			<column name="expires_at" type="TIMESTAMPTZ"/>
+			<column name="revoked_at" type="TIMESTAMPTZ"/>
+			<column name="revoked_reason" type="TEXT"/>
+			<!-- version supports optimistic locking on concurrent credential updates. -->
+			<column name="version" type="BIGINT" defaultValueNumeric="0">
+				<constraints nullable="false"/>
+			</column>
+		</createTable>
+		<addForeignKeyConstraint baseTableName="identity_credential" baseColumnNames="user_id"
+			constraintName="fk_identity_credential_user" referencedTableName="platform_user"
+			referencedColumnNames="user_id" onDelete="CASCADE"/>
+		<createIndex tableName="identity_credential" indexName="ix_identity_credential_user_id">
+			<column name="user_id"/>
+		</createIndex>
+	</changeSet>
+
+	<changeSet id="001-03b-identity-credential-checks" author="copilot">
+		<sql>
+			ALTER TABLE identity_credential
+				ADD CONSTRAINT ck_identity_credential_provider
+				CHECK (provider IN ('LOCAL', 'GOOGLE', 'APPLE', 'BRAND_SSO', 'SERVICE_CREDENTIAL', 'PASSKEY'));
+			ALTER TABLE identity_credential
+				ADD CONSTRAINT ck_identity_credential_credential_type
+				CHECK (credential_type IN ('PASSWORD', 'OIDC', 'SAML', 'MFA_FACTOR', 'API_CLIENT', 'PASSKEY'));
+			ALTER TABLE identity_credential
+				ADD CONSTRAINT ck_identity_credential_status
+				CHECK (status IN ('PENDING_VERIFICATION', 'ACTIVE', 'LOCKED', 'REVOKED', 'EXPIRED', 'DISABLED'));
+			ALTER TABLE identity_credential
+				ADD CONSTRAINT ck_identity_credential_mfa_factor_type
+				CHECK (mfa_factor_type IS NULL OR mfa_factor_type IN ('TOTP', 'SMS', 'EMAIL_OTP', 'WEBAUTHN'));
+		</sql>
+		<rollback>
+			<sql>
+				ALTER TABLE identity_credential DROP CONSTRAINT IF EXISTS ck_identity_credential_provider;
+				ALTER TABLE identity_credential DROP CONSTRAINT IF EXISTS ck_identity_credential_credential_type;
+				ALTER TABLE identity_credential DROP CONSTRAINT IF EXISTS ck_identity_credential_status;
+				ALTER TABLE identity_credential DROP CONSTRAINT IF EXISTS ck_identity_credential_mfa_factor_type;
+			</sql>
+		</rollback>
+	</changeSet>
+
+	<changeSet id="001-03c-identity-credential-unique" author="copilot">
+		<!-- Prevents the exact same credential from being inserted twice for the same user
+		     (e.g. re-running a seed script), while still allowing multiple *distinct* credentials
+		     per user - several MFA factors of different types, several linked OIDC accounts with
+		     different provider_subject, several API client keys with different credential_ref, etc.
+		     COALESCE(..., '') normalizes NULLs so two rows that both leave an optional column NULL
+		     (e.g. two PASSWORD credentials, which have no provider_subject/credential_ref/mfa_factor_type)
+		     are still treated as duplicates of each other by the unique index. -->
+		<sql>
+			CREATE UNIQUE INDEX uq_identity_credential_identity ON identity_credential (
+				user_id, provider, credential_type,
+				COALESCE(provider_subject, ''), COALESCE(credential_ref, ''), COALESCE(mfa_factor_type, '')
+			);
+		</sql>
+		<rollback>
+			<sql>DROP INDEX IF EXISTS uq_identity_credential_identity;</sql>
+		</rollback>
+	</changeSet>
+
+	<changeSet id="001-04-role" author="copilot">
+		<createTable tableName="role">
+			<column name="role_id" type="UUID" defaultValueComputed="gen_random_uuid()">
+				<constraints primaryKey="true" nullable="false"/>
+			</column>
+			<column name="role_name" type="VARCHAR(50)">
+				<constraints nullable="false"/>
+			</column>
+			<column name="description" type="TEXT"/>
+			<column name="role_type" type="VARCHAR(30)">
+				<constraints nullable="false"/>
+			</column>
+			<column name="is_privileged" type="BOOLEAN" defaultValueBoolean="false">
+				<constraints nullable="false"/>
+			</column>
+		</createTable>
+		<addUniqueConstraint tableName="role" columnNames="role_name" constraintName="uq_role_role_name"/>
+	</changeSet>
+
+	<changeSet id="001-05-permission" author="copilot">
+		<createTable tableName="permission">
+			<column name="permission_id" type="UUID" defaultValueComputed="gen_random_uuid()">
+				<constraints primaryKey="true" nullable="false"/>
+			</column>
+			<column name="permission_key" type="VARCHAR(100)">
+				<constraints nullable="false"/>
+			</column>
+			<column name="resource_type" type="VARCHAR(50)">
+				<constraints nullable="false"/>
+			</column>
+			<column name="action" type="VARCHAR(50)">
+				<constraints nullable="false"/>
+			</column>
+			<column name="description" type="TEXT"/>
+		</createTable>
+		<addUniqueConstraint tableName="permission" columnNames="permission_key" constraintName="uq_permission_permission_key"/>
+	</changeSet>
+
+	<changeSet id="001-06-role-permission" author="copilot">
+		<createTable tableName="role_permission">
+			<column name="role_permission_id" type="UUID" defaultValueComputed="gen_random_uuid()">
+				<constraints primaryKey="true" nullable="false"/>
+			</column>
+			<column name="role_id" type="UUID">
+				<constraints nullable="false"/>
+			</column>
+			<column name="permission_id" type="UUID">
+				<constraints nullable="false"/>
+			</column>
+		</createTable>
+		<addUniqueConstraint tableName="role_permission" columnNames="role_id,permission_id"
+			constraintName="uq_role_permission_role_permission"/>
+		<addForeignKeyConstraint baseTableName="role_permission" baseColumnNames="role_id"
+			constraintName="fk_role_permission_role" referencedTableName="role" referencedColumnNames="role_id"
+			onDelete="CASCADE"/>
+		<addForeignKeyConstraint baseTableName="role_permission" baseColumnNames="permission_id"
+			constraintName="fk_role_permission_permission" referencedTableName="permission"
+			referencedColumnNames="permission_id" onDelete="CASCADE"/>
+		<createIndex tableName="role_permission" indexName="ix_role_permission_permission_id">
+			<column name="permission_id"/>
+		</createIndex>
+	</changeSet>
+
+	<changeSet id="001-07-role-assignment" author="copilot">
+		<createTable tableName="role_assignment">
+			<column name="role_assignment_id" type="UUID" defaultValueComputed="gen_random_uuid()">
+				<constraints primaryKey="true" nullable="false"/>
+			</column>
+			<column name="user_id" type="UUID">
+				<constraints nullable="false"/>
+			</column>
+			<column name="role_id" type="UUID">
+				<constraints nullable="false"/>
+			</column>
+			<column name="scope_type" type="VARCHAR(30)">
+				<constraints nullable="false"/>
+			</column>
+			<column name="scope_id" type="UUID"/>
+			<column name="status" type="VARCHAR(30)" defaultValue="ACTIVE">
+				<constraints nullable="false"/>
+			</column>
+			<column name="assigned_at" type="TIMESTAMPTZ" defaultValueComputed="CURRENT_TIMESTAMP">
+				<constraints nullable="false"/>
+			</column>
+			<column name="assigned_by" type="UUID"/>
+		</createTable>
+		<addForeignKeyConstraint baseTableName="role_assignment" baseColumnNames="user_id"
+			constraintName="fk_role_assignment_user" referencedTableName="platform_user" referencedColumnNames="user_id"
+			onDelete="CASCADE"/>
+		<addForeignKeyConstraint baseTableName="role_assignment" baseColumnNames="role_id"
+			constraintName="fk_role_assignment_role" referencedTableName="role" referencedColumnNames="role_id"
+			onDelete="CASCADE"/>
+		<addForeignKeyConstraint baseTableName="role_assignment" baseColumnNames="assigned_by"
+			constraintName="fk_role_assignment_assigned_by" referencedTableName="platform_user"
+			referencedColumnNames="user_id" onDelete="SET NULL"/>
+		<createIndex tableName="role_assignment" indexName="ix_role_assignment_user_id">
+			<column name="user_id"/>
+		</createIndex>
+		<createIndex tableName="role_assignment" indexName="ix_role_assignment_scope">
+			<column name="scope_type"/>
+			<column name="scope_id"/>
+		</createIndex>
+	</changeSet>
+
+</databaseChangeLog>

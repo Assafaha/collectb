@@ -1,0 +1,48 @@
+<div class="cb-page-header">
+  <h1>Platform Admin &middot; Brands</h1>
+  <p>Create brands and manage every brand on the platform.</p>
+</div>
+
+<div class="cb-card">
+  <h2>Create brand</h2>
+  <div class="cb-form-row">
+    <div class="cb-field">
+      <label for="new-brand-code">Brand code</label>
+      <input pInputText id="new-brand-code" placeholder="acme-collectibles" [(ngModel)]="newBrandCode" />
+    </div>
+    <div class="cb-field">
+      <label for="new-brand-name">Name</label>
+      <input pInputText id="new-brand-name" placeholder="Acme Collectibles" [(ngModel)]="newBrandName" />
+    </div>
+    <div class="cb-field">
+      <label for="new-brand-description">Description</label>
+      <input pInputText id="new-brand-description" placeholder="Optional" [(ngModel)]="newBrandDescription" />
+    </div>
+    <p-button type="button" label="Create brand" icon="pi pi-plus" (click)="createBrand()"></p-button>
+  </div>
+  @if (successMessage()) {
+    <p-message severity="success">{{ successMessage() }}</p-message>
+  }
+  @if (errorMessage()) {
+    <p-message severity="error">{{ errorMessage() }}</p-message>
+  }
+</div>
+
+<div class="cb-card">
+  <h2>All brands</h2>
+  @if (loading()) {
+    <p class="cb-empty-state">Loading&hellip;</p>
+  } @else if (rowData().length === 0) {
+    <p class="cb-empty-state">No brands exist yet.</p>
+  } @else {
+    <ag-grid-angular
+      style="height: 440px; width: 100%;"
+      [rowData]="rowData()"
+      [columnDefs]="columnDefs"
+      [defaultColDef]="defaultColDef"
+      [rowSelection]="'single'"
+      [rowHeight]="44"
+      (cellClicked)="onRowClicked($event.data?.brandId)"
+    ></ag-grid-angular>
+  }
+</div>

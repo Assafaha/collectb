@@ -1,0 +1,118 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+	xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+		http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.24.xsd">
+
+	<!-- Spring Authorization Server's default JDBC persistence schema, per design doc section
+	     2.2 "Identity Implementation Milestone" (OAuth2/OIDC-compatible access tokens, section
+	     2.2.3 "Token and Session Design"). DDL adapted from the official schema scripts shipped
+	     inside spring-security-oauth2-authorization-server 7.1.1
+	     (org/springframework/security/oauth2/server/authorization/**/*.sql), per that script's
+	     own "IMPORTANT" comment for PostgreSQL: all 'blob' columns changed to 'text' (Postgres has
+	     no 'blob' type) and all 'timestamp' columns changed to 'timestamptz' (so time instants are
+	     stored/compared accurately regardless of session time zone). Column names/lengths are
+	     otherwise unchanged - including post_logout_redirect_uris and the device/user code columns,
+	     which are part of JdbcRegisteredClientRepository/JdbcOAuth2AuthorizationService's fixed
+	     SELECT/INSERT column lists even though this MVP does not use the device_code grant - so
+	     JdbcRegisteredClientRepository and JdbcOAuth2AuthorizationService work without extra
+	     configuration. -->
+
+	<changeSet id="004-01-oauth2-registered-client" author="copilot">
+		<createTable tableName="oauth2_registered_client">
+			<column name="id" type="VARCHAR(100)">
+				<constraints primaryKey="true" nullable="false"/>
+			</column>
+			<column name="client_id" type="VARCHAR(100)">
+				<constraints nullable="false"/>
+			</column>
+			<column name="client_id_issued_at" type="TIMESTAMP WITH TIME ZONE" defaultValueComputed="CURRENT_TIMESTAMP">
+				<constraints nullable="false"/>
+			</column>
+			<column name="client_secret" type="VARCHAR(200)"/>
+			<column name="client_secret_expires_at" type="TIMESTAMP WITH TIME ZONE"/>
+			<column name="client_name" type="VARCHAR(200)">
+				<constraints nullable="false"/>
+			</column>
+			<column name="client_authentication_methods" type="VARCHAR(1000)">
+				<constraints nullable="false"/>
+			</column>
+			<column name="authorization_grant_types" type="VARCHAR(1000)">
+				<constraints nullable="false"/>
+			</column>
+			<column name="redirect_uris" type="VARCHAR(1000)"/>
+			<column name="post_logout_redirect_uris" type="VARCHAR(1000)"/>
+			<column name="scopes" type="VARCHAR(1000)">
+				<constraints nullable="false"/>
+			</column>
+			<column name="client_settings" type="VARCHAR(2000)">
+				<constraints nullable="false"/>
+			</column>
+			<column name="token_settings" type="VARCHAR(2000)">
+				<constraints nullable="false"/>
+			</column>
+		</createTable>
+	</changeSet>
+
+	<changeSet id="004-02-oauth2-authorization" author="copilot">
+		<createTable tableName="oauth2_authorization">
+			<column name="id" type="VARCHAR(100)">
+				<constraints primaryKey="true" nullable="false"/>
+			</column>
+			<column name="registered_client_id" type="VARCHAR(100)">
+				<constraints nullable="false"/>
+			</column>
+			<column name="principal_name" type="VARCHAR(200)">
+				<constraints nullable="false"/>
+			</column>
+			<column name="authorization_grant_type" type="VARCHAR(100)">
+				<constraints nullable="false"/>
+			</column>
+			<column name="authorized_scopes" type="VARCHAR(1000)"/>
+			<column name="attributes" type="TEXT"/>
+			<column name="state" type="VARCHAR(500)"/>
+			<column name="authorization_code_value" type="TEXT"/>
+			<column name="authorization_code_issued_at" type="TIMESTAMP WITH TIME ZONE"/>
+			<column name="authorization_code_expires_at" type="TIMESTAMP WITH TIME ZONE"/>
+			<column name="authorization_code_metadata" type="TEXT"/>
+			<column name="access_token_value" type="TEXT"/>
+			<column name="access_token_issued_at" type="TIMESTAMP WITH TIME ZONE"/>
+			<column name="access_token_expires_at" type="TIMESTAMP WITH TIME ZONE"/>
+			<column name="access_token_metadata" type="TEXT"/>
+			<column name="access_token_type" type="VARCHAR(100)"/>
+			<column name="access_token_scopes" type="VARCHAR(1000)"/>
+			<column name="oidc_id_token_value" type="TEXT"/>
+			<column name="oidc_id_token_issued_at" type="TIMESTAMP WITH TIME ZONE"/>
+			<column name="oidc_id_token_expires_at" type="TIMESTAMP WITH TIME ZONE"/>
+			<column name="oidc_id_token_metadata" type="TEXT"/>
+			<column name="refresh_token_value" type="TEXT"/>
+			<column name="refresh_token_issued_at" type="TIMESTAMP WITH TIME ZONE"/>
+			<column name="refresh_token_expires_at" type="TIMESTAMP WITH TIME ZONE"/>
+			<column name="refresh_token_metadata" type="TEXT"/>
+			<column name="user_code_value" type="TEXT"/>
+			<column name="user_code_issued_at" type="TIMESTAMP WITH TIME ZONE"/>
+			<column name="user_code_expires_at" type="TIMESTAMP WITH TIME ZONE"/>
+			<column name="user_code_metadata" type="TEXT"/>
+			<column name="device_code_value" type="TEXT"/>
+			<column name="device_code_issued_at" type="TIMESTAMP WITH TIME ZONE"/>
+			<column name="device_code_expires_at" type="TIMESTAMP WITH TIME ZONE"/>
+			<column name="device_code_metadata" type="TEXT"/>
+		</createTable>
+	</changeSet>
+
+	<changeSet id="004-03-oauth2-authorization-consent" author="copilot">
+		<createTable tableName="oauth2_authorization_consent">
+			<column name="registered_client_id" type="VARCHAR(100)">
+				<constraints primaryKey="true" nullable="false"/>
+			</column>
+			<column name="principal_name" type="VARCHAR(200)">
+				<constraints primaryKey="true" nullable="false"/>
+			</column>
+			<column name="authorities" type="VARCHAR(1000)">
+				<constraints nullable="false"/>
+			</column>
+		</createTable>
+	</changeSet>
+
+</databaseChangeLog>

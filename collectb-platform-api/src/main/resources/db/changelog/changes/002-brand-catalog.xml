@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog
+	xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+	xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+		http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.24.xsd">
+
+	<!-- Brand and Catalog: the product-definition layer. A brand owns collections,
+	     collections contain collectible templates, and templates reference media assets.
+	     Nothing can be issued as an ADC until this layer exists. -->
+
+	<changeSet id="002-01-brand" author="copilot">
+		<createTable tableName="brand">
+			<column name="brand_id" type="UUID" defaultValueComputed="gen_random_uuid()">
+				<constraints primaryKey="true" nullable="false"/>
+			</column>
+			<column name="brand_code" type="VARCHAR(80)">
+				<constraints nullable="false"/>
+			</column>
+			<column name="name" type="VARCHAR(200)">
+				<constraints nullable="false"/>
+			</column>
+			<column name="description" type="TEXT"/>
+			<column name="license_status" type="VARCHAR(30)" defaultValue="DRAFT">
+				<constraints nullable="false"/>
+			</column>
+			<column name="created_by_user_id" type="UUID">
+				<constraints nullable="false"/>
+			</column>
+			<column name="created_at" type="TIMESTAMPTZ" defaultValueComputed="CURRENT_TIMESTAMP">
+				<constraints nullable="false"/>
+			</column>
+			<column name="updated_at" type="TIMESTAMPTZ" defaultValueComputed="CURRENT_TIMESTAMP">
+				<constraints nullable="false"/>
+			</column>
+		</createTable>
+		<addUniqueConstraint tableName="brand" columnNames="brand_code" constraintName="uq_brand_brand_code"/>
+		<addUniqueConstraint tableName="brand" columnNames="name" constraintName="uq_brand_name"/>
+		<addForeignKeyConstraint baseTableName="brand" baseColumnNames="created_by_user_id"
+			constraintName="fk_brand_created_by_user" referencedTableName="platform_user"
+			referencedColumnNames="user_id" onDelete="RESTRICT"/>
+		<createIndex tableName="brand" indexName="ix_brand_license_status">
+			<column name="license_status"/>
+		</createIndex>
+	</changeSet>
+
+	<!-- brand_user was removed: brand membership/role is already modeled via role_assignment
+	     (scope_type=BRAND, scope_id=brand_id) per the Identity domain, so a separate brand
+	     membership table would duplicate that mapping. -->
+
+	<changeSet id="002-03-collection" author="copilot">
+		<createTable tableName="collection">
+			<column name="collection_id" type="UUID" defaultValueComputed="gen_random_uuid()">
+				<constraints primaryKey="true" nullable="false"/>
+			</column>
+			<column name="brand_id" type="UUID">
+				<constraints nullable="false"/>
+			</column>
+			<column name="collection_code" type="VARCHAR(80)">
+				<constraints nullable="false"/>
+			</column>
+			<column name="name" type="VARCHAR(200)">
+				<constraints nullable="false"/>
+			</column>
+			<column name="description" type="TEXT"/>
+			<column name="release_status" type="VARCHAR(30)" defaultValue="DRAFT">
+				<constraints nullable="false"/>
+			</column>
+			<column name="release_start_at" type="TIMESTAMPTZ"/>
+			<column name="release_end_at" type="TIMESTAMPTZ"/>
+			<column name="created_by_user_id" type="UUID">
+				<constraints nullable="false"/>
+			</column>
+			<column name="created_at" type="TIMESTAMPTZ" defaultValueComputed="CURRENT_TIMESTAMP">
+				<constraints nullable="false"/>
+			</column>
+			<column name="updated_at" type="TIMESTAMPTZ" defaultValueComputed="CURRENT_TIMESTAMP">
+				<constraints nullable="false"/>
+			</column>
+		</createTable>
+		<addUniqueConstraint tableName="collection" columnNames="brand_id,collection_code" constraintName="uq_collection_brand_code"/>
+		<addForeignKeyConstraint baseTableName="collection" baseColumnNames="brand_id"
+			constraintName="fk_collection_brand" referencedTableName="brand" referencedColumnNames="brand_id"
+			onDelete="CASCADE"/>
+		<addForeignKeyConstraint baseTableName="collection" baseColumnNames="created_by_user_id"
+			constraintName="fk_collection_created_by_user" referencedTableName="platform_user"
+			referencedColumnNames="user_id" onDelete="RESTRICT"/>
+		<createIndex tableName="collection" indexName="ix_collection_brand_id">
+			<column name="brand_id"/>
+		</createIndex>
+		<createIndex tableName="collection" indexName="ix_collection_release_status">
+			<column name="release_status"/>
+		</createIndex>
+	</changeSet>
+
+	<changeSet id="002-04-media-asset" author="copilot">
+		<createTable tableName="media_asset">
+			<column name="media_asset_id" type="UUID" defaultValueComputed="gen_random_uuid()">
+				<constraints primaryKey="true" nullable="false"/>
+			</column>
+			<column name="asset_type" type="VARCHAR(30)">
+				<constraints nullable="false"/>
+			</column>
+			<column name="storage_uri" type="TEXT">
+				<constraints nullable="false"/>
+			</column>
+			<column name="cdn_uri" type="TEXT"/>
+			<column name="content_type" type="VARCHAR(100)"/>
+			<column name="checksum" type="VARCHAR(128)">
+				<constraints nullable="false"/>
+			</column>
+			<column name="file_size_bytes" type="BIGINT"/>
+			<column name="created_at" type="TIMESTAMPTZ" defaultValueComputed="CURRENT_TIMESTAMP">
+				<constraints nullable="false"/>
+			</column>
+		</createTable>
+		<addUniqueConstraint tableName="media_asset" columnNames="storage_uri" constraintName="uq_media_asset_storage_uri"/>
+		<createIndex tableName="media_asset" indexName="ix_media_asset_asset_type">
+			<column name="asset_type"/>
+		</createIndex>
+	</changeSet>
+
+	<changeSet id="002-05-collectible-template" author="copilot">
+		<createTable tableName="collectible_template">
+			<column name="template_id" type="UUID" defaultValueComputed="gen_random_uuid()">
+				<constraints primaryKey="true" nullable="false"/>
+			</column>
+			<column name="collection_id" type="UUID">
+				<constraints nullable="false"/>
+			</column>
+			<column name="media_asset_id" type="UUID"/>
+			<column name="template_code" type="VARCHAR(80)">
+				<constraints nullable="false"/>
+			</column>
+			<column name="display_name" type="VARCHAR(200)">
+				<constraints nullable="false"/>
+			</column>
+			<column name="rarity" type="VARCHAR(50)"/>
+			<column name="edition_size" type="INTEGER">
+				<constraints nullable="false"/>
+			</column>
+			<column name="metadata_schema_version" type="VARCHAR(20)">
+				<constraints nullable="false"/>
+			</column>
+			<column name="metadata_uri" type="TEXT">
+				<constraints nullable="false"/>
+			</column>
+			<column name="metadata_hash" type="VARCHAR(128)"/>
+			<column name="publish_status" type="VARCHAR(30)" defaultValue="DRAFT">
+				<constraints nullable="false"/>
+			</column>
+			<column name="created_by_user_id" type="UUID">
+				<constraints nullable="false"/>
+			</column>
+			<column name="created_at" type="TIMESTAMPTZ" defaultValueComputed="CURRENT_TIMESTAMP">
+				<constraints nullable="false"/>
+			</column>
+			<column name="updated_at" type="TIMESTAMPTZ" defaultValueComputed="CURRENT_TIMESTAMP">
+				<constraints nullable="false"/>
+			</column>
+		</createTable>
+		<addUniqueConstraint tableName="collectible_template" columnNames="collection_id,template_code"
+			constraintName="uq_collectible_template_collection_code"/>
+		<addForeignKeyConstraint baseTableName="collectible_template" baseColumnNames="collection_id"
+			constraintName="fk_collectible_template_collection" referencedTableName="collection"
+			referencedColumnNames="collection_id" onDelete="CASCADE"/>
+		<addForeignKeyConstraint baseTableName="collectible_template" baseColumnNames="media_asset_id"
+			constraintName="fk_collectible_template_media_asset" referencedTableName="media_asset"
+			referencedColumnNames="media_asset_id" onDelete="SET NULL"/>
+		<addForeignKeyConstraint baseTableName="collectible_template" baseColumnNames="created_by_user_id"
+			constraintName="fk_collectible_template_created_by_user" referencedTableName="platform_user"
+			referencedColumnNames="user_id" onDelete="RESTRICT"/>
+		<createIndex tableName="collectible_template" indexName="ix_collectible_template_collection_id">
+			<column name="collection_id"/>
+		</createIndex>
+		<createIndex tableName="collectible_template" indexName="ix_collectible_template_publish_status">
+			<column name="publish_status"/>
+		</createIndex>
+	</changeSet>
+
+</databaseChangeLog>

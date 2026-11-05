@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration scan="false">
+
+	<!-- Reuses Spring Boot's default console pattern (with a logger name column) rather than
+	     hand-rolling one from scratch, then extends it with a rolling file appender so identity/
+	     auth traces survive across restarts, not just in the terminal. -->
+	<include resource="org/springframework/boot/logging/logback/defaults.xml" />
+
+	<property name="LOG_FILE" value="${LOG_FILE:-${LOG_PATH:-${user.dir}/logs}/collectb.log}" />
+
+	<appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+		<encoder>
+			<pattern>${CONSOLE_LOG_PATTERN}</pattern>
+		</encoder>
+	</appender>
+
+	<appender name="FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+		<file>${LOG_FILE}</file>
+		<encoder>
+			<pattern>${FILE_LOG_PATTERN}</pattern>
+		</encoder>
+		<rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+			<fileNamePattern>${LOG_FILE}.%d{yyyy-MM-dd}.%i.gz</fileNamePattern>
+			<maxFileSize>20MB</maxFileSize>
+			<maxHistory>14</maxHistory>
+			<totalSizeCap>200MB</totalSizeCap>
+		</rollingPolicy>
+	</appender>
+
+	<!-- Identity bounded context (registration, authentication, JWT issuance, OAuth2/OIDC
+	     wiring): DEBUG so credential-check failures, role/permission resolution, and token
+	     issuance are traceable without needing framework-wide DEBUG noise. Never logs raw
+	     passwords or password hashes - see PlatformUserAuthenticationService/AuthController. -->
+	<logger name="com.example.collectb" level="DEBUG" />
+
+	<!-- Spring Security's own authentication pipeline (DaoAuthenticationProvider, the OAuth2
+	     authorization_code+PKCE filters, form login) - DEBUG surfaces exactly which check
+	     rejected a login attempt (unknown user, bad password, disabled account, etc.), which
+	     application code alone cannot always see (e.g. AuthenticationManager-level failures
+	     that never reach our own services). -->
+	<logger name="org.springframework.security" level="DEBUG" />
+
+	<!-- SQL is left at WARN by default (very noisy at DEBUG); flip to DEBUG/TRACE locally when
+	     diagnosing a specific query/parameter-binding issue. -->
+	<logger name="org.hibernate.SQL" level="WARN" />
+
+	<root level="INFO">
+		<appender-ref ref="CONSOLE" />
+		<appender-ref ref="FILE" />
+	</root>
+
+</configuration>
