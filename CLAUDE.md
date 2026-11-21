@@ -30,8 +30,11 @@ Prerequisites: **JDK 27 with `JAVA_HOME` set** (the system `java` on this machin
 ```bash
 docker compose up -d                       # local PostgreSQL 16 (container "collectb", db collectdb, port 5432)
 ./mvnw -q compile                          # fast compile check of all modules
-./mvnw -pl collectb-platform-api -am spring-boot:run   # run API on :8080 (default profile: development)
+./mvnw -q -DskipTests install              # needed once (and after module changes) so the API module can resolve its siblings
+./mvnw -pl collectb-platform-api spring-boot:run       # run API on :8080 (default profile: development). Do NOT add -am: Maven then runs the goal on the parent POM, which has no main class
 ```
+
+Local JDK 27 lives at `C:\Users\assaf\.jdks\openjdk-27.0.1.1` (IntelliJ-managed); in a shell run `export JAVA_HOME="/c/Users/assaf/.jdks/openjdk-27.0.1.1"` first. A JVM crash (`hs_err_pid*.log` / `replay_pid*.log` in the repo root) happened once on JDK 27 and did not recur on retry — delete those files, don't commit them.
 
 Tests: all backend tests live in `collectb-platform-api/src/test`. ITs use Testcontainers (`PostgresTestcontainerConfiguration`, needs Docker).
 **Surefire does not pick up `*IT` classes by default** — plain `mvnw test` only runs `*Test`/`*Tests`. Always pass `-Dtest`:
@@ -48,7 +51,7 @@ Frontend (run inside `collectb-admin-portal/`):
 
 ```bash
 npm install
-npm start          # ng serve on :4200, proxies /api /oauth2 /login /logout /.well-known to :8080 (proxy.conf.json)
+npm start          # ng serve on http://127.0.0.1:3000 (port fixed in angular.json; must match the OAuth redirect URIs in Oauth2ClientSeeder), proxies /api /oauth2 /login /logout /.well-known to :8080 (proxy.conf.json)
 npx ng test --watch=false
 npm run build      # production build — run it to verify frontend changes
 ```
